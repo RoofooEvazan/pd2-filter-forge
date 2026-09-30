@@ -21,7 +21,8 @@ const readTable = (name) => {
 };
 const strings = JSON.parse(fs.readFileSync(path.join(TABLES, "..", "strings.json"), "utf8"));
 const manifest = JSON.parse(fs.readFileSync(path.join(TABLES, "..", "manifest.json"), "utf8"));
-const wiki = fs.readFileSync(path.join(SRC, "wiki_item_filtering.txt"), "utf8");
+// CRLF checkouts (core.autocrlf) would otherwise break the line-anchored wiki regexes below
+const wiki = fs.readFileSync(path.join(SRC, "wiki_item_filtering.txt"), "utf8").replace(/\r\n/g, "\n");
 const palette = JSON.parse(fs.readFileSync(path.join(SRC, "palette.json"), "utf8"));
 
 // D2 color escape is 0xFF 'c' <digit>; the extracted strings carry it double-encoded as "Ã¿c".
