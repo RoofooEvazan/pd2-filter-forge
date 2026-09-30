@@ -1,6 +1,6 @@
 // Shop hunting: pick what you're hunting for in vendor windows, give it a look that jumps out,
 // and see it in a mock vendor tab exactly as the filter will label it.
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { actions, getState, useStore } from "../state/store";
 import { useAnalysis } from "../state/analysis";
 import { compileDoc, runFilter, type FilterResult } from "../lib/engine";
@@ -49,6 +49,7 @@ export function ShopView() {
   const [sel, setSel] = useState<string | null>(null);
   const [gallery, setGallery] = useState(targets.length === 0);
   const selected = targets.find((t) => t.id === sel) ?? targets[0];
+  useEffect(() => actions.markSeen("shop"), []);
 
   const save = (ts: ShopTarget[], opts = options) => actions.setLines(writeShop(getState().doc!.lines, ts, opts));
   const update = (t: ShopTarget) => save(targets.map((x) => (x.id === t.id ? t : x)));

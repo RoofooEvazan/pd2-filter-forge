@@ -353,7 +353,7 @@ Checks: `sem.conflict`, `sem.range-conflict`, `sem.domain`, `sem.affix-op`, `sem
 - **Arrows and bolts.** `aqv aqv2 aqv3`, `cqv cqv2 cqv3`.
 - **Renamed codes.** Codes can change between seasons, e.g. Overlord's Helm `uhl` → `uh9` in S13.
 
-Checks: `cond.item-unknown`, `sem.stacked`.
+Checks: `cond.item-unknown`, `cond.odd-code`, `sem.stacked`.
 
 ---
 

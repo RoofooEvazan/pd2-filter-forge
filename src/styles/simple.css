@@ -1019,3 +1019,84 @@
   content: " \2713";
   color: var(--ok);
 }
+
+/* ---------------------------------------------------------------- simple mode tabs */
+.simple-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 8px 16px 0;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg2);
+  flex-wrap: wrap;
+}
+.simple-tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 14px;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  margin-bottom: -1px;
+}
+.simple-tabs button:hover {
+  color: var(--text);
+  background: var(--hover);
+}
+.simple-tabs button.on {
+  color: var(--text);
+  background: var(--bg);
+  border-color: var(--line);
+  border-bottom: 1px solid var(--bg);
+}
+.new-badge {
+  font-size: 0.68em;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  color: #111;
+  background: var(--accent);
+  border-radius: 999px;
+  padding: 1px 6px;
+}
+.rail .new-dot {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 2px var(--panel), 0 0 8px var(--accent);
+}
+.mystery-howto {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 560px;
+  padding: 18px;
+  border: 1px dashed var(--line2);
+  border-radius: 12px;
+  background: var(--panel);
+}
+.mystery-howto > div {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  line-height: 1.45;
+}
+.mystery-howto b {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #111;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}

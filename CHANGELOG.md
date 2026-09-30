@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.3.3 — 2026-09-30
+
+### Easier to find
+
+- **Simple mode has labeled tabs** across the top: Items · Mystery drops · Loot preview · Shop hunting. New features carry a NEW badge until you open them.
+- **Mystery drops has its own tab**, with a short how-it-works guide next to the starting points.
+- **Advanced mode:** the Shop hunting icon shows a dot until you've visited it.
+
+### More accurate problem checks (from a review of the Roofoo filters)
+
+- **Unknown item codes no longer suggest items of a different kind.** In a list of PvP arena maps, `t60` or `t63` used to suggest real maps like `t13` or `t24`, which would have given those maps the PvP note. Now the checker suggests removing the dead code.
+- **The comment above a rule is used as a hint:** under “// Hide rare Heavy Bolts”, `cqv1` is recognised as a leftover, because Heavy Bolts (`cqv2`) is already in the list. It no longer suggests `cqv` (Light Bolts).
+- **New check, "Item code that doesn't fit the list":** flags a real item of a different kind hiding among others, like `t69` (Ruined Cistern Map, tier 3) in the PvP arena list.
+- **Built-in colors:** no longer flagged when the color you set is the item's own color (`%GOLD%` on Orb of Fortification changes nothing).
+- **Unused aliases** are found correctly. `NOSTARUNIQUE` was counted as used just because `NOSTARUNIQUEETH` contains it. An alias is now used only if a rule, or an alias that a rule uses, names it as a whole word.
+- **Alias order** isn't reported for aliases no rule uses, since it makes no difference there.
+
 ## 0.3.2 — 2026-09-30
 
 - **Updates install themselves.** "Update to x.y.z" (banner, Settings → Version and the start screen) downloads the new installer from GitHub, closes Filter Forge, updates it in place and reopens it. Only installers from this app's own GitHub releases are accepted.

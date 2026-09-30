@@ -19,6 +19,7 @@ import { UpdateBanner } from "./components/Updates";
 import { ShopView } from "./components/ShopView";
 import { DiscordDialog } from "./components/DiscordDialog";
 import { checkOnLaunch } from "./lib/updates";
+import { readMysteries } from "./lib/simple";
 
 const SIMPLE_NAV: { view: View; icon: string; label: string; hk: string }[] = [
   { view: "simple", icon: "wand", label: "Items", hk: "1" },
@@ -41,6 +42,7 @@ export function App() {
   const view = useStore((s) => s.view);
   const palette = useStore((s) => s.palette);
   const discord = useStore((s) => s.discord);
+  const mode = settings.mode;
   const toast = useStore((s) => s.toast);
 
   useEffect(() => {
@@ -97,6 +99,7 @@ export function App() {
       <Rail />
       <main className="main">
         <UpdateBanner />
+        {hasDoc && mode === "simple" && (view === "simple" || view === "preview" || view === "shop") && <SimpleTabs />}
         {!hasDoc && view !== "settings" && view !== "codex" ? (
           <Home />
         ) : view === "simple" ? (
@@ -236,10 +239,12 @@ function Rail() {
 function RailButton({ view, icon, label, hk, on }: { view: View; icon: string; label: string; hk: string; on: boolean }) {
   const a = useAnalysis();
   const count = view === "problems" ? a.counts.error : 0;
+  const isNew = useStore((s) => view === "shop" && !s.seen.includes("shop"));
   return (
-    <button className={`tip ${on ? "on" : ""}`} data-tip={`${label} (Alt+${hk})`} onClick={() => actions.setView(view)}>
+    <button className={`tip ${on ? "on" : ""}`} data-tip={`${label}${isNew ? " — new!" : ""} (Alt+${hk})`} onClick={() => actions.setView(view)}>
       <Icon name={icon} />
       {count > 0 && <span className="count">{count > 99 ? "99+" : count}</span>}
+      {isNew && <span className="new-dot" />}
     </button>
   );
 }
@@ -248,4 +253,40 @@ export function confirmClose() {
   if (isDirty(getState()) && !window.confirm("Close this filter? Unsaved changes will be lost.")) return;
   actions.close();
   actions.setView(getState().settings.mode === "simple" ? "simple" : "rules");
+}
+
+/** Labeled tabs across the top of Simple mode, so every part of it is easy to find. */
+function SimpleTabs() {
+  const view = useStore((s) => s.view);
+  const cat = useStore((s) => s.simpleCat);
+  const seen = useStore((s) => s.seen);
+  const lines = useStore((s) => s.doc?.lines);
+  const mystery = view === "simple" && cat.startsWith("mys:");
+  const tabs = [
+    { id: "items", label: "Items", icon: "wand", on: view === "simple" && !mystery, go: () => { if (mystery) actions.setSimpleCat("runes"); actions.setView("simple"); } },
+    {
+      id: "mystery",
+      label: "Mystery drops",
+      icon: "gift",
+      on: mystery,
+      isNew: !seen.includes("mystery"),
+      go: () => {
+        const ms = lines ? readMysteries(lines) : [];
+        actions.setSimpleCat(ms.length ? `mys:${ms[0].id}` : "mys:new");
+        actions.setView("simple");
+      },
+    },
+    { id: "preview", label: "Loot preview", icon: "eye", on: view === "preview", go: () => actions.setView("preview") },
+    { id: "shop", label: "Shop hunting", icon: "spark", on: view === "shop", isNew: !seen.includes("shop"), go: () => actions.setView("shop") },
+  ];
+  return (
+    <div className="simple-tabs">
+      {tabs.map((t) => (
+        <button key={t.id} className={t.on ? "on" : ""} onClick={t.go}>
+          <Icon name={t.icon} size={15} /> {t.label}
+          {t.isNew && !t.on && <span className="new-badge">NEW</span>}
+        </button>
+      ))}
+    </div>
+  );
 }

@@ -1,6 +1,6 @@
 // Simple mode: pick a kind of item, see exactly how your filter shows it, and change it with
 // swatches, pictures and sound buttons. No filter code anywhere.
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { actions, getState, useStore } from "../state/store";
 import { useAnalysis, type Analysis } from "../state/analysis";
 import { runFilter, type FilterResult } from "../lib/engine";
@@ -44,13 +44,17 @@ function preview(a: Analysis, g: Group, ctx: ViewContext): FilterResult {
 export function SimpleView() {
   const a = useAnalysis();
   const ctx = useStore((s) => s.ctx);
-  const [cat, setCat] = useState(CATALOG[0].id);
+  const cat = useStore((s) => s.simpleCat);
+  const setCat = actions.setSimpleCat;
   const [sel, setSel] = useState<string | null>(null);
   const [q, setQ] = useState("");
   const choices = useMemo(() => readChoices(a.lines), [a]);
   const mysteries = useMemo(() => readMysteries(a.lines), [a]);
   const mysId = cat.startsWith(MYS) ? cat.slice(MYS.length) : null;
   const mystery = mysteries.find((m) => m.id === mysId);
+  useEffect(() => {
+    if (mysId) actions.markSeen("mystery");
+  }, [mysId]);
   const pick = (c: string) => {
     setCat(c);
     setQ("");
@@ -142,6 +146,31 @@ export function SimpleView() {
                   : `${catInfo?.blurb} This is exactly how your filter shows them right now. Click one to change it.`}
             </p>
           </div>
+          {mysId && !mystery && !q && (
+            <div className="mystery-howto">
+              <div>
+                <b>1</b>
+                <span>
+                  <strong>Pick a look</strong> on the right — Little Bastard, Lucky Bastard, Holy Moly… — or start from any of them.
+                </span>
+              </div>
+              <div>
+                <b>2</b>
+                <span>
+                  <strong>Make it yours:</strong> banner words and colors, decorations, minimap icon and drop sound.
+                </span>
+              </div>
+              <div>
+                <b>3</b>
+                <span>
+                  <strong>Choose the items</strong> it hides: open any item under <em>Items</em> and pick your mystery under “Mystery drop”.
+                </span>
+              </div>
+              <div className="small muted">
+                On the ground, those items show only your banner, icon and sound. You find out what dropped when you pick it up.
+              </div>
+            </div>
+          )}
           {mystery && (
             <button className="mystery-hero" onClick={() => setSel(null)} title="Edit the banner">
               <MysteryBanner m={mystery} scale={1.25} />

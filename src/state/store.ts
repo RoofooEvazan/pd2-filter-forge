@@ -68,6 +68,10 @@ export interface State {
   palette: boolean;
   /** Open Discord post dialog, if any. */
   discord: "help" | "share" | null;
+  /** Simple mode sidebar selection: a catalog category, "changes", or "mys:<id>" / "mys:new". */
+  simpleCat: string;
+  /** Features the user has opened at least once (hides their NEW badges). */
+  seen: string[];
   recent: { name: string; path: string; t: number }[];
   /** Facts about the file as loaded, for file-level checks. */
   fileFacts: { bom: boolean; nonUtf8: boolean };
@@ -120,6 +124,8 @@ let state: State = {
   toast: null,
   palette: false,
   discord: null,
+  simpleCat: "runes",
+  seen: loadArr<string>("ff.seen"),
   recent: loadArr("ff.recent"),
   fileFacts: { bom: false, nonUtf8: false },
   refAnchor: null,
@@ -295,6 +301,19 @@ export const actions = {
   },
   openDiscord(kind: "help" | "share" | null) {
     set({ discord: kind });
+  },
+  setSimpleCat(cat: string) {
+    set({ simpleCat: cat });
+  },
+  markSeen(feature: string) {
+    if (state.seen.includes(feature)) return;
+    const seen = [...state.seen, feature];
+    set({ seen });
+    try {
+      localStorage.setItem("ff.seen", JSON.stringify(seen));
+    } catch {
+      /* storage unavailable */
+    }
   },
 };
 

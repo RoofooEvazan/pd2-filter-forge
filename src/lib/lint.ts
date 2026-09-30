@@ -10,7 +10,7 @@ import type { Compiled, CompiledRule } from "./engine";
 import { COND_BY_CODE, MAX_FILTER_LEVELS, NAME_DISPLAY_LIMIT } from "./spec";
 import { DATA, ITEM_BY_CODE, SOUND_BY_ID } from "./data";
 import { suggestItemCode, suggestKeyword, suggestOutputKeyword } from "./suggest";
-import { makeItem } from "./item";
+import { makeItem, mapTier } from "./item";
 import { evalLeaf } from "./conditions";
 import { DEFAULT_CTX } from "./item";
 
@@ -105,6 +105,7 @@ export const CHECKS: CheckDef[] = [
   C("cond.unknown", "Unknown word in conditions", "broadens", "PD2 silently ignores words it doesn't know, so the rule matches more than intended.", "conditions"),
   C("cond.lowercase", "Keyword written in lower case", "breaks", "Anything with no capitals in its first 3 letters is read as an item code; no item has that code, so it never matches.", "conditions"),
   C("cond.item-unknown", "No item has this code", "breaks", "The comparison is an exact 4-character code match, so this can never be true.", "conditions"),
+  C("cond.odd-code", "Item code that doesn't fit the list", "misleads", "Among codes of one kind (like PvP arena maps) sits a real item of another kind — often a typo in the number — so the rule also applies to it.", "item-codes"),
   C("cond.item-long", "Item code longer than 4 characters", "misleads", "Only the first 4 characters are compared.", "conditions"),
   C("cond.two-char-op", ">=, <=, == or != in conditions", "broadens", "Conditions only support one-character operators; the whole condition is dropped (and its parentheses with it).", "conditions"),
   C("cond.bad-value", "Value isn't a number", "broadens", "When the value can't be read the condition is dropped, and its closing ) and ! go with it.", "conditions"),
@@ -190,6 +191,7 @@ const ADVICE: Record<string, string> = {
   "cond.unknown": "Fix the spelling, or remove the word.",
   "cond.lowercase": "Write the keyword in upper case.",
   "cond.item-unknown": "Use a real item code (Codex → Items lists them all).",
+  "cond.odd-code": "Remove it if it's there by mistake.",
   "cond.item-long": "Item codes are at most 4 characters.",
   "cond.two-char-op": "Use a one-character comparison: ILVL>=80 becomes ILVL>79.",
   "cond.bad-value": "Use a whole number.",
@@ -369,6 +371,75 @@ function spacedJoin(cond: string, key: string, defs: Definitions): { from: strin
   return defs.aliases.has(to) || COND_BY_CODE.has(to) ? { from: m[1] + m[2] + m[3], to } : undefined;
 }
 
+// ------------------------------------------------------------------ item kinds
+
+/** A code's kind: maps by tier (so the two PvP arena types count as one), everything else by item type. */
+export function kindOf(code: string): string | undefined {
+  const b = ITEM_BY_CODE.get(code);
+  if (!b) return undefined;
+  const tier = mapTier(b);
+  return tier >= 0 ? `map${tier}` : b.t;
+}
+
+function majorityKind(codes: string[]): string | undefined {
+  const n = new Map<string, number>();
+  for (const c of codes) {
+    const k = kindOf(c);
+    if (k) n.set(k, (n.get(k) ?? 0) + 1);
+  }
+  const [k, count] = [...n.entries()].sort((a, b) => b[1] - a[1])[0] ?? [];
+  return k && count! >= 2 && count! * 2 > codes.length ? k : undefined;
+}
+
+function kindLabel(kind: string): string {
+  const MAPS: Record<string, string> = { map0: "PvP arena maps", map1: "tier 1 maps", map2: "tier 2 maps", map3: "tier 3 maps", map4: "dungeon maps", map5: "unique maps" };
+  return MAPS[kind] ?? `the same kind of item`;
+}
+
+/** Comment lines directly above a rule plus its trailing note, lower-cased: what the author says it's for. */
+function contextText(lines: Line[], i: number): string {
+  const parts: string[] = [];
+  for (let k = i - 1, n = 0; k >= 0 && n < 3 && lines[k].kind === "comment"; k--, n++) parts.push(lines[k].text ?? "");
+  if (lines[i]?.note) parts.push(lines[i].note!);
+  return parts.join(" ").toLowerCase();
+}
+
+/** "t61 OR t62 OR t69": one code of a different kind among codes that otherwise agree. */
+function oddCodeIssues(l: Line, i: number, tree: BhNode | null): Issue[] {
+  const out: Issue[] = [];
+  const chains: string[][] = [];
+  const walk = (n: BhNode | null, chain?: string[]) => {
+    if (!n) return;
+    if (n.t === "or") {
+      const c = chain ?? [];
+      walk(n.a, c);
+      walk(n.b, c);
+      if (!chain) chains.push(c);
+    } else if (n.t === "leaf") {
+      if (chain && n.leaf.cls === "item" && n.leaf.base) chain.push(n.leaf.code!);
+    } else if (n.t === "not") walk(n.a);
+    else {
+      walk(n.a);
+      walk(n.b);
+    }
+  };
+  walk(tree);
+  for (const codes of chains) {
+    const kind = majorityKind(codes);
+    if (!kind || !kind.startsWith("map")) continue; // maps are where a stray number changes the meaning
+    for (const c of codes) {
+      const k = kindOf(c);
+      if (k === kind || !codes.some((o) => kindOf(o) === kind && o.slice(0, 2) === c.slice(0, 2))) continue;
+      const others = codes.filter((o) => kindOf(o) === kind).slice(0, 3).map((o) => `${o} ${ITEM_BY_CODE.get(o)!.n}`);
+      out.push(issue("cond.odd-code", l, i, `${c} is ${ITEM_BY_CODE.get(c)!.n} (${kindLabel(k!).replace(/s$/, "")}), but the other codes here are ${kindLabel(kind)}.`, replaceInRaw(l, c, "", `Remove ${c}`).map((f) => ({ ...f, key: f.key?.replace(/\bOR\s+OR\b/g, "OR").replace(/\(\s*OR\s+/g, "(").replace(/\s+OR\s*\)/g, ")").replace(/^\s*OR\s+|\s+OR\s*$/g, "").replace(/\s+/g, " ").trim() })), c, {
+        detail: `The codes next to it are ${list(others)}. This rule's look (and any note in it) also applies to ${ITEM_BY_CODE.get(c)!.n}, which is probably not intended.`,
+        advice: `If it's there by mistake, remove ${c}.`,
+      }));
+    }
+  }
+  return out;
+}
+
 // ------------------------------------------------------------------ rule checks
 
 const DROPPED: BhEvent["kind"][] = ["dropped-unknown", "dropped-bad-value", "dropped-param", "dropped-formula", "two-char-op"];
@@ -450,13 +521,30 @@ function eventIssues(l: Line, i: number, ev: BhEvent, cond: string, ctx: LintCtx
         ];
       }
       const neighbours = [...cond.matchAll(/(?:^|[\s(!])([a-z0-9]{3,4})(?=$|[\s)!])/g)].map((m) => m[1]).filter((c) => c !== code && ITEM_BY_CODE.has(c));
-      const sugg = suggestItemCode(code, neighbours).filter((s) => !neighbours.includes(s.text));
+      // What kind of item the rule is about, when its other codes agree (PvP maps, bolts…).
+      const kind = majorityKind(neighbours);
+      let sugg = suggestItemCode(code, neighbours).filter((s) => !neighbours.includes(s.text) && (!kind || kindOf(s.text) === kind));
+      // An item named in the comment above the rule is the best hint ("// Hide rare Heavy Bolts").
+      const note = contextText(ctx.lines, i);
+      const named = note ? DATA.items.find((it) => it.n.length >= 4 && note.includes(it.n.toLowerCase()) && (it.c.slice(0, 2) === code.slice(0, 2) || kindOf(it.c) === kind)) : undefined;
       const kw = COND_BY_CODE.get(code.toUpperCase());
+      let advice: string | undefined;
+      if (named && neighbours.includes(named.c)) {
+        sugg = [];
+        advice = `The comment above says “${named.n}”, which is ${named.c} — already in this list. “${code}” looks like a leftover, so remove it.`;
+      } else if (named) {
+        sugg = [{ text: named.c, why: `${named.n}, as the comment above says` }, ...sugg.filter((s) => s.text !== named.c)];
+      }
+      if (!advice && kind && !sugg.length) {
+        const eg = neighbours.slice(0, 2).map((c) => `${c} ${ITEM_BY_CODE.get(c)!.n}`);
+        advice = `The other codes here are ${kindLabel(kind)} (${list(eg)}). No such item has a code like “${code}”, so it's probably a leftover — remove it.`;
+      }
+      if (!advice && (sugg.length || kw)) advice = `Did you mean ${[...(kw && kw.kind !== "logic" ? [`${code.toUpperCase()} (${kw.label})`] : []), ...sugg.map((s) => `${s.text} (${s.why})`)].join(", ")}?`;
       const fixes = [...(kw && kw.kind !== "logic" ? fixTok(ev.token.replace(code, code.toUpperCase()), `Use ${code.toUpperCase()} (${kw.label})`) : []), ...sugg.flatMap((s) => fixTok(ev.token.replace(code, s.text), `Use ${s.text} — ${s.why}`)), ...drop()];
       return [
         issue("cond.item-unknown", l, i, `No item has the code “${code}”, so this part never matches${from}.`, fixes, ev.token, {
           detail: "PD2 compares item codes exactly. Inside an OR a wrong code is dead text; inside an AND it disables the rule.",
-          advice: sugg.length || kw ? `Did you mean ${[...(kw && kw.kind !== "logic" ? [`${code.toUpperCase()} (${kw.label})`] : []), ...sugg.map((s) => `${s.text} (${s.why})`)].join(", ")}?` : undefined,
+          advice,
         }),
       ];
     }
@@ -877,8 +965,15 @@ function outputContextIssues(l: Line, i: number, r: CompiledRule): Issue[] {
       detail: "%RUNENAME%, %RUNENUM%, %GEMLEVEL% and %GEMTYPE% are empty for items that aren't runes or gems, and an output that comes out empty hides the item.",
     }));
   // Color before %NAME% on built-in-color items.
-  if (codes.length === 1 && ITEM_BY_CODE.get(codes[0])?.col && /%[A-Z_]+%%NAME%|%[A-Z_]+%\s*%NAME%/.test(name) && !name.includes("%BASENAME%")) {
-    out.push(issue("out.builtin-color", l, i, `${ITEM_BY_CODE.get(codes[0])?.n} has its color built into %NAME%, so the color before it has no effect.`, (l.value ?? "").includes("%NAME%") ? [{ label: "Use %BASENAME% instead", value: (l.value ?? "").replace("%NAME%", "%BASENAME%") }] : []));
+  // Only worth saying when the color asked for differs from the built-in one (%GOLD% on a gold orb changes nothing).
+  const builtIn = codes.length === 1 ? ITEM_BY_CODE.get(codes[0])?.col : undefined;
+  const asked = name.match(/%([A-Z_]+)%\s*%NAME%/)?.[1];
+  if (builtIn && asked && asked !== builtIn && COLOR_LIKE.test(`%${asked}%`) && !name.includes("%BASENAME%")) {
+    const item = ITEM_BY_CODE.get(codes[0])!.n;
+    out.push(issue("out.builtin-color", l, i, `${item} shows in ${builtIn.toLowerCase().replace("_", " ")} no matter what: its color is built into %NAME%, so %${asked}% has no effect.`, (l.value ?? "").includes("%NAME%") ? [{ label: "Use %BASENAME% instead", value: (l.value ?? "").replace("%NAME%", "%BASENAME%") }] : [], undefined, {
+      detail: `PD2 stores ${item}'s name with its own color code inside it, which overrides any color written before %NAME%. %BASENAME% is the same text without that color.`,
+      advice: `If you want it ${asked.toLowerCase().replace("_", " ")}, use %BASENAME%; otherwise remove %${asked}%.`,
+    }));
   }
   return out;
 }
@@ -916,8 +1011,21 @@ function aliasIssues(doc: FilterDoc, defs: Definitions, ctx: LintCtx): Issue[] {
   const aliasLines = doc.lines.map((l, i) => [l, i] as const).filter(([l]) => l.kind === "alias" && !l.disabled);
   const seen = new Map<string, number>();
   const ruleText = doc.lines.filter((l) => l.kind === "rule" && !l.disabled).map((l) => l.key ?? "");
-  const allText = doc.lines.filter((l) => (l.kind === "rule" || l.kind === "alias") && !l.disabled).map((l) => `${l.key}\u0000${l.value}`).join("\n");
   const keywordCodes = [...COND_BY_CODE.keys()].filter((k) => /^[A-Z]/.test(k));
+  // An alias is used when a rule names it as a whole word (or %NAME% in output), or when an alias
+  // that is used contains it. Plain substring counting would call NOSTARUNIQUE "used" just because
+  // NOSTARUNIQUEETH exists.
+  const ruleWords = new Set(doc.lines.filter((l) => l.kind === "rule" && !l.disabled).flatMap((l) => `${l.key ?? ""} ${l.value ?? ""}`.match(/[A-Za-z0-9_]+/g) ?? []));
+  const defsList = aliasList(doc.lines);
+  const used = new Set<string>();
+  const queue = defsList.filter((a) => ruleWords.has(a.name) || ruleWords.has(a.name.toUpperCase())).map((a) => a.name);
+  while (queue.length) {
+    const n = queue.pop()!;
+    if (used.has(n)) continue;
+    used.add(n);
+    const val = defsList.find((a) => a.name === n)?.value ?? "";
+    for (const b of defsList) if (!used.has(b.name) && containsWord(val, b.name)) queue.push(b.name);
+  }
   aliasLines.forEach(([l, i], order) => {
     const rawKey = (l.key ?? "").trim();
     const name = rawKey.split(" ")[0];
@@ -934,7 +1042,8 @@ function aliasIssues(doc: FilterDoc, defs: Definitions, ctx: LintCtx): Issue[] {
     if (v.includes(name) || v.includes(`%${name.toUpperCase()}%`)) out.push(issue("alias.self", l, i, `The value contains “${name}” itself, so PD2's replace loop never ends and the game hangs while loading.`));
     // Earlier aliases inside this value aren't expanded.
     const inner = [...ctx.orderPairs].filter((p) => p.startsWith(`${name}>`)).map((p) => p.slice(name.length + 1));
-    if (inner.length && ctx.aliasAt.get(name) === i) {
+    // Only matters when some rule actually uses this alias.
+    if (inner.length && ctx.aliasAt.get(name) === i && used.has(name)) {
       const where = inner.map((n0) => `${n0} (line ${ctx.aliasAt.get(n0)! + 1})`);
       out.push(issue("alias.order", l, i, `${list(inner)} ${inner.length > 1 ? "are" : "is"} used inside this alias but defined above it, so PD2 never expands ${inner.length > 1 ? "them" : "it"} here.`, inner.flatMap((n0) => aliasMoveFix(ctx, n0, name)), inner[0], {
         detail: `PD2 expands each alias once, top to bottom. ${list(where)} ${inner.length > 1 ? "are" : "is"} expanded before this alias inserts ${inner.length > 1 ? "them" : "it"}, so rules using ${name} end up with the plain word${inner.length > 1 ? "s" : ""} ${list(inner.map((x) => `“${x}”`))}, which PD2 drops as unknown.`,
@@ -947,8 +1056,14 @@ function aliasIssues(doc: FilterDoc, defs: Definitions, ctx: LintCtx): Issue[] {
     const re = new RegExp(`[A-Za-z0-9_]${name}|${name}[A-Za-z0-9_]`);
     const inRule = ruleText.find((t) => re.test(t) && !defs.aliases.has(t.match(new RegExp(`[A-Za-z0-9_]*${name}[A-Za-z0-9_]*`))?.[0] ?? ""));
     if (inKeyword || inRule) out.push(issue("alias.clobber", l, i, `“${name}” is also part of ${inKeyword ? `the keyword ${inKeyword}` : `“${inRule!.match(new RegExp(`[A-Za-z0-9_]*${name}[A-Za-z0-9_]*`))?.[0]}”`}, which gets rewritten too.`));
-    const uses = allText.split(name).length - 1 + (allText.split(`%${name.toUpperCase()}%`).length - 1);
-    if (uses <= 1) out.push(issue("alias.unused", l, i, `${name} isn't used by any rule.`, [{ label: "Delete this alias", remove: true }]));
+    if (!used.has(name)) {
+      const inUnused = defsList.filter((a) => a.name !== name && containsWord(a.value, name)).map((a) => a.name);
+      out.push(issue("alias.unused", l, i, `${name} isn't used by any rule.`, [{ label: "Delete this alias", remove: true }], undefined, {
+        detail: inUnused.length
+          ? `It only appears inside ${list(inUnused.slice(0, 3))}${inUnused.length > 3 ? " and others" : ""}, which no rule uses either.`
+          : "No rule (and no alias a rule uses) mentions it, so it has no effect on the filter.",
+      }));
+    }
   });
   return out;
 }
@@ -1019,7 +1134,7 @@ export function lintDoc(doc: FilterDoc, compiled?: Compiled, opts: LintOptions =
     // Spaces around a comparison: a value keyword followed by an operator token.
     const sp = cond.match(/\b([A-Z][A-Z0-9_]*)\s+([<>=~])\s*(-?\d+(?:-\d+)?)/);
     if (sp && COND_BY_CODE.get(sp[1])?.kind === "value") out.push(issue("cond.spaces-op", l, i, `“${sp[0]}” has spaces around the comparison.`, [{ label: `Change to ${sp[1]}${sp[2]}${sp[3]}`, key: cond.replace(sp[0], `${sp[1]}${sp[2]}${sp[3]}`), safe: true }]));
-    if (!r.error) out.push(...semanticIssues(l, i, r, levelCount));
+    if (!r.error) out.push(...semanticIssues(l, i, r, levelCount), ...oddCodeIssues(l, i, r.bh.tree));
     out.push(...outputIssues(l, i, r, defs));
     if (!r.error) out.push(...outputContextIssues(l, i, r));
 
