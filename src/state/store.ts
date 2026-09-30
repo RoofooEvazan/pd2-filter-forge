@@ -5,7 +5,7 @@ import { editLine, parseFilter, serializeFilter, type FilterDoc, type Line } fro
 import { DEFAULT_CTX, makeItem, type TestItem, type ViewContext } from "../lib/item";
 import type { Encoding } from "../lib/platform";
 
-export type View = "simple" | "preview" | "rules" | "lab" | "definitions" | "problems" | "codex" | "source" | "settings";
+export type View = "simple" | "preview" | "shop" | "rules" | "lab" | "definitions" | "problems" | "codex" | "source" | "settings";
 export type Mode = "simple" | "advanced";
 
 export interface Settings {
@@ -188,7 +188,7 @@ export const actions = {
   setMode(mode: Mode) {
     actions.setSettings({ mode });
     const v = state.view;
-    if (mode === "simple" && !["simple", "preview", "settings"].includes(v)) set({ view: "simple" });
+    if (mode === "simple" && !["simple", "preview", "shop", "settings"].includes(v)) set({ view: "simple" });
     if (mode === "advanced" && (v === "simple" || v === "preview")) set({ view: v === "preview" ? "lab" : "rules" });
   },
   select(id: string | null, reveal = false) {

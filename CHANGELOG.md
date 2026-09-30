@@ -1,5 +1,39 @@
 # Changelog
 
+## 0.3.0 — 2026-09-30
+
+### Shop hunting
+
+- A new **Shop hunting** page (in both Simple and Advanced mode) for vendor windows.
+- **Suggestions for your class:** +3 to each skill tree, +2 class skills, caster weapons with FCR, +2 skill circlets with run speed, 4+ socket runeword bases, fast boots, superior armor and +all skills. Each comes with its own contrasting look.
+- **Fully customizable targets:**
+  - what to look for (item type and quality);
+  - any mix of requirements (skill tree, class skills, a single skill, FCR/IAS/FRW/FHR/ED/resists/MF/+skills/attributes, sockets);
+  - how it looks: Spotlight, Price tag, Stat readout, Alarm or plain color, with name and accent colors, a line showing the values you're hunting (e.g. "+3 Lightning · 20 FCR"), a tooltip note, and a price color.
+- **Vendor preview:** a mock vendor tab stocked with samples of your targets plus ordinary items.
+  - Hover any item to see its tooltip exactly as your filter labels it.
+  - Optionally mark every match, or show all tooltips side by side.
+- **"Gray out everything else in shops"** makes your targets pop.
+- Shop rules live in their own block above everything else, so they always win in vendor windows. More specific targets are checked first.
+
+### Mystery drops (Simple mode)
+
+- Create your own mystery banners, like Little, Lucky and Big Bastard. On the ground, chosen items hide behind the banner with its own minimap icon and drop sound, and you only see what dropped once you pick it up.
+- **Fully customizable:**
+  - banner words, each in its own color;
+  - spread-out letters, and decorations on both sides (character, count, spacing, color);
+  - icon and sound;
+  - whether the item shows normally when dropped in town or already identified.
+  - A live character counter warns before PD2's 56-character limit.
+- **Starting points:** Little Bastard, Lucky Bastard, Holy Moly, Mystery Box and Jackpot.
+- **Per item:** every item's panel has a **Mystery drop** choice, and shows how the item looks once picked up.
+- **Sidebar:** each mystery has its own entry listing every item hidden behind it.
+
+### Fixes
+
+- **Problems:** the rule text now wraps, so the whole line can be read.
+- **Rune choices in Simple mode** now also match stacked runes (`r30s`), the way runes usually drop.
+
 ## 0.2.0 — 2026-09-30
 
 First public release.

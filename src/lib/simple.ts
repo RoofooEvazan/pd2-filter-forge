@@ -33,6 +33,8 @@ export interface SimpleStyle {
   sound?: number;
   /** Text alert only up to this filter level. */
   tier?: number;
+  /** Id of a mystery banner this item hides behind while it's on the ground. */
+  mystery?: string;
 }
 
 const g = (id: string, label: string, cond: string, sample: Group["sample"], hint?: string): Group => ({ id, label, cond, sample, hint });
@@ -41,7 +43,9 @@ const one = (id: string, code: string, patch: Partial<TestItem> = {}, label?: st
 
 const RUNES = Array.from({ length: 33 }, (_, i) => {
   const code = `r${String(i + 1).padStart(2, "0")}`;
-  return one(`rune.${code}`, code, {}, `${ITEM_BY_CODE.get(code)?.n.replace(" Rune", "")} (#${i + 1})`);
+  const label = `${ITEM_BY_CODE.get(code)?.n.replace(" Rune", "")} (#${i + 1})`;
+  // Runes usually drop as the stackable code (r30s), so match both.
+  return ITEM_BY_CODE.has(`${code}s`) ? g(`rune.${code}`, label, `(${code} OR ${code}s)`, item(code)) : one(`rune.${code}`, code, {}, label);
 }).reverse();
 
 export const CATALOG: Category[] = [
@@ -276,25 +280,145 @@ export const ICON_SIZES: { size: NonNullable<SimpleStyle["icon"]>["size"]; label
 ];
 export const SOUNDS = Array.from({ length: 16 }, (_, i) => ({ id: 4714 + i, label: `Sound ${i + 1}`, file: `tink${String(i + 1).padStart(2, "0")}.wav` }));
 
+// ------------------------------------------------------------------ mystery drops
+//
+// A mystery hides what dropped behind a banner of your own ("ººº  L i t t l e  B a s t a r d  ººº"),
+// with its own icon and sound. The real name shows once the item is picked up (or dropped in town,
+// or identified, depending on the mystery's settings).
+
+export interface Mystery {
+  id: string;
+  name: string;
+  /** Banner words, each in its own color. */
+  words: { text: string; color: string }[];
+  /** "L i t t l e" instead of "Little". */
+  spaced: boolean;
+  /** Decoration drawn on both sides, repeated `decoCount` times. */
+  deco: string;
+  decoCount: number;
+  decoColor: string;
+  /** Spaces between the decoration and the words. */
+  gap: number;
+  icon?: { size: "px" | "dot" | "map" | "border"; hex: string };
+  sound?: number;
+  /** Show the real name when it drops in a town. */
+  revealInTown: boolean;
+  /** Uniques, sets, rares and magic items stay a mystery only until identified. */
+  untilId: boolean;
+}
+
+export const TOWN_MAPS = [1, 40, 75, 103, 109];
+export const DECORATIONS = ["º", "*", "~", "=", "-", "+", "#", "?", "!", "$", "o", "x"];
+
+export const MYSTERY_PRESETS: (Omit<Mystery, "id"> & { blurb: string })[] = [
+  {
+    name: "Little Bastard",
+    blurb: "Low-key mystery for mid runes and lesser loot.",
+    words: [{ text: "Little", color: "PURPLE" }, { text: "Bastard", color: "RED" }],
+    spaced: true, deco: "º", decoCount: 9, decoColor: "RED", gap: 4,
+    icon: { size: "dot", hex: "60" }, sound: 4714, revealInTown: true, untilId: true,
+  },
+  {
+    name: "Lucky Bastard",
+    blurb: "Bigger banner for high runes and chase items.",
+    words: [{ text: "Lucky", color: "PURPLE" }, { text: "Bastard", color: "RED" }],
+    spaced: true, deco: "º", decoCount: 12, decoColor: "RED", gap: 4,
+    icon: { size: "border", hex: "0D" }, sound: 4722, revealInTown: true, untilId: true,
+  },
+  {
+    name: "Holy Moly",
+    blurb: "The loudest one: for the drops you'd scream about.",
+    words: [{ text: "Holy", color: "GREEN" }, { text: "Moly", color: "GREEN" }],
+    spaced: true, deco: "º", decoCount: 12, decoColor: "RED", gap: 4,
+    icon: { size: "border", hex: "84" }, sound: 4729, revealInTown: true, untilId: true,
+  },
+  {
+    name: "Mystery Box",
+    blurb: "Short and sweet, gold question marks.",
+    words: [{ text: "Mystery Box", color: "GOLD" }],
+    spaced: false, deco: "?", decoCount: 3, decoColor: "ORANGE", gap: 1,
+    icon: { size: "map", hex: "0C" }, sound: 4718, revealInTown: true, untilId: true,
+  },
+  {
+    name: "Jackpot",
+    blurb: "Casino style, for your currency.",
+    words: [{ text: "JACKPOT", color: "YELLOW" }],
+    spaced: true, deco: "$", decoCount: 5, decoColor: "GREEN", gap: 3,
+    icon: { size: "map", hex: "A8" }, sound: 4725, revealInTown: true, untilId: true,
+  },
+];
+
+const spaceOut = (w: string) => [...w].join(" ");
+const wordText = (m: Mystery, w: string) => (m.spaced ? w.split(/\s+/).map(spaceOut).join("  ") : w);
+
+/** The banner as it appears, without colors (for length checks and plain previews). */
+export function mysteryText(m: Mystery): string {
+  const deco = m.deco.repeat(Math.max(0, m.decoCount));
+  const gap = " ".repeat(m.deco && m.decoCount ? Math.max(0, m.gap) : 0);
+  const words = m.words.filter((w) => w.text.trim()).map((w) => wordText(m, w.text.trim())).join(m.spaced ? "  " : " ");
+  return `${deco}${gap}${words}${gap}${deco}`;
+}
+
+/** The %KEYWORD% output for the banner. */
+export function mysteryOutput(m: Mystery): string {
+  const deco = m.deco.repeat(Math.max(0, m.decoCount));
+  const gap = " ".repeat(m.deco && m.decoCount ? Math.max(0, m.gap) : 0);
+  const words = m.words
+    .filter((w) => w.text.trim())
+    .map((w) => `%${w.color}%${plainText(wordText(m, w.text.trim()))}`)
+    .join(m.spaced ? "  " : " ");
+  const d = deco ? `%${m.decoColor}%${plainText(deco)}` : "";
+  const name = `${d}${gap}${words}${gap}${d}`;
+  return composeOutput({ name, desc: null, effects: { cont: false, ...(m.icon ? { [m.icon.size]: m.icon.hex } : {}), ...(m.sound != null ? { sound: m.sound } : {}) } });
+}
+
+const IDENTIFIABLE = new Set(["magic", "rare", "set", "unique", "crafted"]);
+
+/** Conditions for a group while it's a mystery: on the ground, optionally not in town / not identified. */
+export function mysteryCond(m: Mystery, group: Group): string {
+  const parts = [group.cond, "GROUND"];
+  if (m.untilId && group.sample.quality && IDENTIFIABLE.has(group.sample.quality)) parts.push("!ID");
+  if (m.revealInTown) parts.push(`!(${TOWN_MAPS.map((n) => `MAPID=${n}`).join(" OR ")})`);
+  return parts.join(" ");
+}
+
+export function newMysteryId(existing: Mystery[]): string {
+  let n = existing.length + 1;
+  while (existing.some((m) => m.id === `m${n}`)) n++;
+  return `m${n}`;
+}
+
 // ------------------------------------------------------------------ reading & writing the block
 
 const TAG = "@ff ";
+const MTAG = "@ffm ";
 const HEADER = "=================== SIMPLE MODE CHOICES ===================";
 const BLURB = " Made in Simple mode with PD2 Filter Forge. These come first, so they win.";
+/** Shop hunting keeps its own block, which must stay above this one (see shop.ts). */
+export const SHOP_TAG = "@ffs ";
+export const SHOP_HEADER = "=================== SHOP HUNTING ===================";
+export const SHOP_BLURB = " Made in Shop hunting with PD2 Filter Forge. Only applies to items in a vendor's window.";
 
 function isManagedLine(l: Line) {
-  return (l.kind === "rule" && !!l.note?.startsWith(TAG)) || (l.kind === "comment" && (l.text === HEADER || l.text === BLURB));
+  return (
+    (l.kind === "rule" && !!l.note?.startsWith(TAG)) ||
+    (l.kind === "comment" && (l.text === HEADER || l.text === BLURB || !!l.text?.startsWith(MTAG)))
+  );
+}
+
+export function isShopLine(l: Line) {
+  return (l.kind === "rule" && !!l.note?.startsWith(SHOP_TAG)) || (l.kind === "comment" && (l.text === SHOP_HEADER || l.text === SHOP_BLURB || !!l.text?.startsWith(SHOP_TAG)));
 }
 
 /** Managed lines, plus the blank line the block ends with. */
-function managedMask(lines: Line[]): boolean[] {
-  const mask = lines.map(isManagedLine);
-  for (let i = 1; i < lines.length; i++) if (mask[i - 1] && !mask[i] && lines[i].kind === "blank" && lines[i - 1].kind === "rule") mask[i] = true;
+export function blockMask(lines: Line[], is: (l: Line) => boolean): boolean[] {
+  const mask = lines.map(is);
+  for (let i = 1; i < lines.length; i++) if (mask[i - 1] && !mask[i] && lines[i].kind === "blank" && (lines[i - 1].kind === "rule" || lines[i - 1].kind === "comment")) mask[i] = true;
   return mask;
 }
 
 export function isManaged(l: Line) {
-  return isManagedLine(l);
+  return isManagedLine(l) || isShopLine(l);
 }
 
 export function readChoices(lines: Line[]): Map<string, SimpleStyle> {
@@ -313,13 +437,29 @@ export function readChoices(lines: Line[]): Map<string, SimpleStyle> {
   return out;
 }
 
+export function readMysteries(lines: Line[]): Mystery[] {
+  const out: Mystery[] = [];
+  for (const l of lines) {
+    if (l.kind !== "comment" || !l.text?.startsWith(MTAG)) continue;
+    const body = l.text.slice(MTAG.length).trim();
+    const sp = body.indexOf(" ");
+    if (sp < 0) continue;
+    try {
+      out.push({ ...JSON.parse(body.slice(sp + 1)), id: body.slice(0, sp) });
+    } catch {
+      /* hand-edited: ignore */
+    }
+  }
+  return out;
+}
+
 function plainText(s: string) {
   // Keep typed names literal: no keywords, braces or comment markers.
   return s.replace(/\/\//g, "/").replace(/%/g, "%PERCENT%").replace(/\{/g, "%LBRACE%").replace(/\}/g, "%RBRACE%");
 }
 
 export function isEmptyStyle(s: SimpleStyle) {
-  return s.hide == null && !s.color && !s.stars && !s.rename && !s.icon && s.sound == null && s.tier == null;
+  return s.hide == null && !s.color && !s.stars && !s.rename && !s.icon && s.sound == null && s.tier == null && !s.mystery;
 }
 
 /** Whether the choice changes the item's text (and so replaces the filter's own look). */
@@ -327,11 +467,12 @@ export function changesLook(s: SimpleStyle) {
   return !!(s.color || s.stars || s.rename);
 }
 
-function rulesFor(id: string, group: Group, s: SimpleStyle): Line[] {
-  const note = `${TAG}${id} ${JSON.stringify(s)}`;
+function rulesFor(id: string, group: Group, s: SimpleStyle, withJson: boolean): Line[] {
+  const note = withJson ? `${TAG}${id} ${JSON.stringify(s)}` : `${TAG}${id}`;
   const out: Line[] = [];
+  const noteFor = () => (out.length ? `${TAG}${id}` : note);
   if (s.hide === "always") return [makeRule(group.cond, "", note)];
-  if (typeof s.hide === "number") out.push(makeRule(`${group.cond} FILTLVL>${Math.max(0, s.hide - 1)}`, "", out.length ? `${TAG}${id}` : note));
+  if (typeof s.hide === "number") out.push(makeRule(`${group.cond} FILTLVL>${Math.max(0, s.hide - 1)}`, "", noteFor()));
   const effects = { cont: false, ...(s.icon ? { [s.icon.size]: s.icon.hex } : {}), ...(s.sound != null ? { sound: s.sound } : {}), ...(s.tier != null && (s.icon || s.sound != null) ? { tier: s.tier } : {}) };
   const alerts = !!(s.icon || s.sound != null);
   if (changesLook(s)) {
@@ -341,12 +482,59 @@ function rulesFor(id: string, group: Group, s: SimpleStyle): Line[] {
     const builtInColor = !!ITEM_BY_CODE.get(group.sample.code)?.col;
     const nm = s.rename ? plainText(s.rename) : s.color && builtInColor ? "%BASENAME%" : "%NAME%";
     const name = s.stars ? `${c}*** ${c}${nm} ${c}***` : `${c}${nm}`;
-    out.push(makeRule(group.cond, composeOutput({ name, desc: null, effects }), out.length ? `${TAG}${id}` : note));
+    out.push(makeRule(group.cond, composeOutput({ name, desc: null, effects }), noteFor()));
   } else if (alerts) {
     // Only an alert: keep the filter's own look by continuing to its rules.
-    out.push(makeRule(group.cond, composeOutput({ name: "%NAME%", desc: null, effects: { ...effects, cont: true } }), out.length ? `${TAG}${id}` : note));
+    out.push(makeRule(group.cond, composeOutput({ name: "%NAME%", desc: null, effects: { ...effects, cont: true } }), noteFor()));
   }
   return out;
+}
+
+/** Rewrite the Simple mode block from a full set of choices and mysteries. */
+function writeBlock(lines: Line[], choices: Map<string, SimpleStyle>, mysteries: Mystery[]): Line[] {
+  const mask = blockMask(lines, isManagedLine);
+  const firstManaged = mask.indexOf(true);
+  const kept = lines.filter((_, i) => !mask[i]);
+  let at: number;
+  if (firstManaged >= 0) {
+    at = lines.slice(0, firstManaged).filter((_, i) => !mask[i]).length;
+  } else {
+    // Below the shop block when there is one (shop rules must win in vendor windows), else before the first rule.
+    const shop = blockMask(kept, isShopLine);
+    const lastShop = shop.lastIndexOf(true);
+    const firstRule = kept.findIndex((l) => l.kind === "rule");
+    at = lastShop >= 0 ? lastShop + 1 : firstRule >= 0 ? firstRule : kept.length;
+  }
+  const known = new Set(mysteries.map((m) => m.id));
+  for (const [cid, s] of choices) {
+    if (s.mystery && !known.has(s.mystery)) {
+      const { mystery: _drop, ...rest } = s;
+      if (isEmptyStyle(rest)) choices.delete(cid);
+      else choices.set(cid, rest);
+    }
+  }
+  if (choices.size === 0 && mysteries.length === 0) return kept;
+
+  // Search-made single items first (most specific), then the catalog order.
+  const order = [...choices.keys()].sort((a, b) => rank(a) - rank(b));
+  const block: Line[] = [makeComment(HEADER), makeComment(BLURB)];
+  for (const m of mysteries) block.push(makeComment(`${MTAG}${m.id} ${JSON.stringify({ ...m, id: undefined })}`));
+  // Mystery banners come before everything else in the block, so they win on the ground.
+  const jsonWritten = new Set<string>();
+  for (const m of mysteries)
+    for (const cid of order) {
+      const s = choices.get(cid)!;
+      const grp = groupFor(cid);
+      if (s.mystery !== m.id || !grp) continue;
+      block.push(makeRule(mysteryCond(m, grp), mysteryOutput(m), `${TAG}${cid} ${JSON.stringify(s)}`));
+      jsonWritten.add(cid);
+    }
+  for (const cid of order) {
+    const grp = groupFor(cid);
+    if (grp) block.push(...rulesFor(cid, grp, choices.get(cid)!, !jsonWritten.has(cid)));
+  }
+  block.push(makeBlank());
+  return [...kept.slice(0, at), ...block, ...kept.slice(at)];
 }
 
 /** Rewrite the Simple mode block with one choice changed (null removes it). */
@@ -354,28 +542,21 @@ export function applyChoice(lines: Line[], id: string, style: SimpleStyle | null
   const choices = readChoices(lines);
   if (style && !isEmptyStyle(style)) choices.set(id, style);
   else choices.delete(id);
+  return writeBlock(lines, choices, readMysteries(lines));
+}
 
-  const mask = managedMask(lines);
-  const firstManaged = mask.indexOf(true);
-  const kept = lines.filter((_, i) => !mask[i]);
-  let at: number;
-  if (firstManaged >= 0) {
-    at = firstManaged;
-  } else {
-    const firstRule = kept.findIndex((l) => l.kind === "rule");
-    at = firstRule >= 0 ? firstRule : kept.length;
-  }
-  if (choices.size === 0) return kept;
+/** Add or update a mystery. */
+export function saveMystery(lines: Line[], m: Mystery): Line[] {
+  const all = readMysteries(lines);
+  const i = all.findIndex((x) => x.id === m.id);
+  if (i >= 0) all[i] = m;
+  else all.push(m);
+  return writeBlock(lines, readChoices(lines), all);
+}
 
-  // Search-made single items first (most specific), then the catalog order.
-  const order = [...choices.keys()].sort((a, b) => rank(a) - rank(b));
-  const block: Line[] = [makeComment(HEADER), makeComment(BLURB)];
-  for (const cid of order) {
-    const grp = groupFor(cid);
-    if (grp) block.push(...rulesFor(cid, grp, choices.get(cid)!));
-  }
-  block.push(makeBlank());
-  return [...kept.slice(0, at), ...block, ...kept.slice(at)];
+/** Delete a mystery; items that used it go back to showing normally. */
+export function deleteMystery(lines: Line[], id: string): Line[] {
+  return writeBlock(lines, readChoices(lines), readMysteries(lines).filter((m) => m.id !== id));
 }
 
 const CATALOG_ORDER = new Map([...ALL_GROUPS.keys()].map((k, i) => [k, i]));

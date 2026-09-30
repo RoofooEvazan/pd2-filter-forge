@@ -1,9 +1,8 @@
 // Simple mode: pick a kind of item, see exactly how your filter shows it, and change it with
 // swatches, pictures and sound buttons. No filter code anywhere.
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { actions, getState, useStore } from "../state/store";
 import { useAnalysis, type Analysis } from "../state/analysis";
-import { soundUrl } from "../state/files";
 import { runFilter, type FilterResult } from "../lib/engine";
 import { makeItem, type ViewContext } from "../lib/item";
 import { makeDirective } from "../lib/document";
@@ -14,20 +13,24 @@ import {
   CATALOG,
   ICON_COLORS,
   ICON_SIZES,
-  SOUNDS,
   TEXT_COLORS,
   applyChoice,
   changesLook,
   groupFor,
   itemGroup,
   readChoices,
+  readMysteries,
   type Group,
   type SimpleStyle,
 } from "../lib/simple";
 import { D2Label, MapIcons } from "./D2Label";
 import { Icon } from "./icons";
+import { SoundGrid } from "./SoundGrid";
+import { MysteryBanner, MysteryEditor, MysteryPresets } from "./Mystery";
 
 const CHANGES = "changes";
+/** Sidebar entries for mysteries are "mys:<id>"; "mys:new" is the preset picker. */
+const MYS = "mys:";
 
 function levelNames(a: Analysis) {
   return a.defs.levels.length ? a.defs.levels.map((l) => l.name) : ["Standard"];
@@ -45,6 +48,14 @@ export function SimpleView() {
   const [sel, setSel] = useState<string | null>(null);
   const [q, setQ] = useState("");
   const choices = useMemo(() => readChoices(a.lines), [a]);
+  const mysteries = useMemo(() => readMysteries(a.lines), [a]);
+  const mysId = cat.startsWith(MYS) ? cat.slice(MYS.length) : null;
+  const mystery = mysteries.find((m) => m.id === mysId);
+  const pick = (c: string) => {
+    setCat(c);
+    setQ("");
+    setSel(null);
+  };
 
   const groups: Group[] = useMemo(() => {
     const query = q.trim().toLowerCase();
@@ -64,8 +75,9 @@ export function SimpleView() {
       return out;
     }
     if (cat === CHANGES) return [...choices.keys()].map(groupFor).filter((g): g is Group => !!g);
-    return CATALOG.find((c) => c.id === cat)!.groups;
-  }, [q, cat, choices]);
+    if (mysId) return [...choices.entries()].filter(([, s]) => s.mystery === mysId).map(([id]) => groupFor(id)).filter((g): g is Group => !!g);
+    return CATALOG.find((c) => c.id === cat)?.groups ?? [];
+  }, [q, cat, choices, mysId]);
 
   const selected = sel ? groupFor(sel) ?? groups.find((g) => g.id === sel) : undefined;
   const catInfo = CATALOG.find((c) => c.id === cat);
@@ -82,7 +94,7 @@ export function SimpleView() {
           {CATALOG.map((c) => {
             const n = c.groups.filter((g) => choices.has(g.id)).length;
             return (
-              <button key={c.id} className={`simple-cat ${cat === c.id && !q ? "on" : ""}`} onClick={() => { setCat(c.id); setQ(""); }}>
+              <button key={c.id} className={`simple-cat ${cat === c.id && !q ? "on" : ""}`} onClick={() => pick(c.id)}>
                 <CatIcon a={a} g={c.groups[0]} ctx={ctx} />
                 <span className="grow">{c.label}</span>
                 {n > 0 && <span className="badge accent">{n}</span>}
@@ -90,19 +102,39 @@ export function SimpleView() {
             );
           })}
           <div className="divider" />
-          <button className={`simple-cat ${cat === CHANGES && !q ? "on" : ""}`} onClick={() => { setCat(CHANGES); setQ(""); }}>
+          <button className={`simple-cat ${cat === CHANGES && !q ? "on" : ""}`} onClick={() => pick(CHANGES)}>
             <Icon name="check" size={16} />
             <span className="grow">My changes</span>
             <span className="badge">{choices.size}</span>
+          </button>
+          <div className="divider" />
+          <div className="section-title" style={{ padding: "0 10px" }}>Mystery drops</div>
+          {mysteries.map((m) => {
+            const n = [...choices.values()].filter((s) => s.mystery === m.id).length;
+            return (
+              <button key={m.id} className={`simple-cat ${cat === MYS + m.id && !q ? "on" : ""}`} onClick={() => pick(MYS + m.id)} title="See every item hidden behind this banner">
+                <span className="cat-dot" style={{ background: COLOR_CSS[m.words[0]?.color ?? "WHITE"] }} />
+                <span className="grow ellipsis">{m.name}</span>
+                <span className="badge">{n}</span>
+              </button>
+            );
+          })}
+          <button className={`simple-cat ${cat === MYS + "new" && !q ? "on" : ""}`} onClick={() => pick(MYS + "new")}>
+            <Icon name="plus" size={16} />
+            <span className="grow">New mystery…</span>
           </button>
         </nav>
 
         <section className="simple-grid-wrap">
           <div className="simple-head">
-            <h2>{q ? `Results for “${q}”` : cat === CHANGES ? "My changes" : catInfo?.label}</h2>
+            <h2>{q ? `Results for “${q}”` : cat === CHANGES ? "My changes" : mystery ? mystery.name : mysId ? "New mystery drop" : catInfo?.label}</h2>
             <p>
               {q
                 ? "Catalog groups and single items. Click one to change how it looks."
+                : mystery
+                  ? "On the ground these items all show as the banner below — you only see what it really is once you pick it up. Click an item to change it, or the banner to edit it."
+                  : mysId
+                    ? "Pick a starting point on the right. You can change every part of it afterwards."
                 : cat === CHANGES
                   ? choices.size
                     ? "Everything you've customized. Click one to adjust or reset it."
@@ -110,15 +142,30 @@ export function SimpleView() {
                   : `${catInfo?.blurb} This is exactly how your filter shows them right now. Click one to change it.`}
             </p>
           </div>
+          {mystery && (
+            <button className="mystery-hero" onClick={() => setSel(null)} title="Edit the banner">
+              <MysteryBanner m={mystery} scale={1.25} />
+            </button>
+          )}
           <div className="simple-grid">
             {groups.map((g) => (
-              <Tile key={g.id} a={a} g={g} ctx={ctx} on={sel === g.id} custom={choices.get(g.id)} onClick={() => setSel(g.id)} />
+              <Tile key={g.id} a={a} g={g} ctx={ctx} on={sel === g.id} custom={choices.get(g.id)} mysteryName={mysteries.find((m) => m.id === choices.get(g.id)?.mystery)?.name} onClick={() => setSel(g.id)} />
             ))}
-            {groups.length === 0 && <div className="empty">Nothing here.</div>}
+            {groups.length === 0 && !(mysId && !mystery) && <div className="empty">{mystery ? "No items use this mystery yet. Open any item and pick it under “Mystery drop”." : "Nothing here."}</div>}
           </div>
         </section>
 
-        <aside className="simple-editor">{selected ? <StyleEditor key={selected.id} g={selected} /> : <EditorEmpty />}</aside>
+        <aside className="simple-editor">
+          {selected ? (
+            <StyleEditor key={selected.id} g={selected} onOpenMystery={(id) => pick(MYS + id)} />
+          ) : mystery ? (
+            <MysteryEditor m={mystery} members={groups.length} onDeleted={() => pick(CHANGES)} />
+          ) : mysId ? (
+            <MysteryPresets onCreated={(id) => pick(MYS + id)} />
+          ) : (
+            <EditorEmpty />
+          )}
+        </aside>
       </div>
     </div>
   );
@@ -130,7 +177,7 @@ function CatIcon({ a, g, ctx }: { a: Analysis; g: Group; ctx: ViewContext }) {
   return <span className="cat-dot" style={{ background: COLOR_CSS[color] ?? "#fff" }} />;
 }
 
-function Tile({ a, g, ctx, on, custom, onClick }: { a: Analysis; g: Group; ctx: ViewContext; on: boolean; custom?: SimpleStyle; onClick: () => void }) {
+function Tile({ a, g, ctx, on, custom, mysteryName, onClick }: { a: Analysis; g: Group; ctx: ViewContext; on: boolean; custom?: SimpleStyle; mysteryName?: string; onClick: () => void }) {
   const r = preview(a, g, ctx);
   const fx = r.notify && !r.hidden ? r.notify.effects : null;
   return (
@@ -142,6 +189,7 @@ function Tile({ a, g, ctx, on, custom, onClick }: { a: Analysis; g: Group; ctx: 
         <span className="ellipsis grow">{g.label}</span>
         {fx && <MapIcons fx={fx} />}
         {fx?.sound != null && <Icon name="sound" size={13} />}
+        {mysteryName && <span className="badge" title={`Hidden behind “${mysteryName}” on the ground`}>?</span>}
         {custom && <span className="badge accent" title="You customized this">yours</span>}
       </div>
     </button>
@@ -255,7 +303,7 @@ function LevelsDialog({ onClose }: { onClose: () => void }) {
 
 // ---------------------------------------------------------------- style editor
 
-function StyleEditor({ g }: { g: Group }) {
+function StyleEditor({ g, onOpenMystery }: { g: Group; onOpenMystery: (id: string) => void }) {
   const a = useAnalysis();
   const ctx = useStore((s) => s.ctx);
   const current = readChoices(a.lines).get(g.id) ?? {};
@@ -270,6 +318,9 @@ function StyleEditor({ g }: { g: Group }) {
   const fx = r.notify && !r.hidden ? r.notify.effects : null;
   const hideMode = current.hide === "always" ? "always" : typeof current.hide === "number" ? "from" : "show";
   const custom = Object.keys(current).length > 0;
+  const mysteries = readMysteries(a.lines);
+  const myMystery = mysteries.find((m) => m.id === current.mystery);
+  const pickedUp = myMystery ? preview(a, g, { ...ctx, location: "INVENTORY" }) : null;
 
   return (
     <div className="col" style={{ gap: 16 }}>
@@ -291,7 +342,42 @@ function StyleEditor({ g }: { g: Group }) {
           {fx ? <MapIcons fx={fx} size={1.6} /> : <span className="small faint">no icon</span>}
         </div>
       </div>
+      {pickedUp && (
+        <div className="row small" style={{ justifyContent: "center" }}>
+          <span className="muted">Once picked up:</span>
+          <D2Label r={pickedUp.display} hiddenText="hidden" />
+        </div>
+      )}
       <LevelVisibility a={a} g={g} names={names} />
+
+      <Section title="Mystery drop">
+        <div className="mystery-picks">
+          <button className={`mystery-pick ${!current.mystery ? "on" : ""}`} onClick={() => set({ mystery: undefined })}>
+            <Icon name="eye" size={16} />
+            <span>Show what it is</span>
+          </button>
+          {mysteries.map((m) => (
+            <button key={m.id} className={`mystery-pick ${current.mystery === m.id ? "on" : ""}`} onClick={() => set({ mystery: m.id })} title={`Hide it behind “${m.name}” while it's on the ground`}>
+              <span className="mystery-stage small">
+                <MysteryBanner m={m} scale={0.7} />
+              </span>
+              <span>{m.name}</span>
+            </button>
+          ))}
+          <button className="mystery-pick" onClick={() => onOpenMystery("new")}>
+            <Icon name="plus" size={16} />
+            <span>New mystery…</span>
+          </button>
+        </div>
+        {myMystery && (
+          <div className="help">
+            On the ground it shows as “{myMystery.name}” with its own icon and sound; you see the real item once you pick it up.{" "}
+            <a href="#" onClick={(e) => { e.preventDefault(); onOpenMystery(myMystery.id); }}>
+              Edit the banner
+            </a>
+          </div>
+        )}
+      </Section>
 
       <Section title="On the ground">
         <div className="choice-cards">
@@ -416,38 +502,6 @@ function RenameField({ value, onCommit }: { value: string; onCommit: (v: string)
         onBlur={() => v !== value && onCommit(v)}
         onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
       />
-    </div>
-  );
-}
-
-function SoundGrid({ value, onChange }: { value?: number; onChange: (v: number | undefined) => void }) {
-  const audio = useRef<HTMLAudioElement | null>(null);
-  const play = async (file: string) => {
-    const url = await soundUrl(file);
-    if (!url) return;
-    audio.current?.pause();
-    audio.current = new Audio(url);
-    audio.current.volume = 0.6;
-    audio.current.play().catch(() => {});
-  };
-  return (
-    <div className="sound-grid">
-      <button className={`sound-btn ${value == null ? "on" : ""}`} onClick={() => onChange(undefined)}>
-        <Icon name="x" size={14} /> None
-      </button>
-      {SOUNDS.map((s) => (
-        <button
-          key={s.id}
-          className={`sound-btn ${value === s.id ? "on" : ""}`}
-          onClick={() => {
-            play(s.file);
-            onChange(s.id);
-          }}
-          title="Click to hear it and choose it"
-        >
-          <Icon name="sound" size={14} /> {s.label.replace("Sound ", "")}
-        </button>
-      ))}
     </div>
   );
 }

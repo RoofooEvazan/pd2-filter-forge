@@ -7,7 +7,7 @@ import { DEFAULT_CTX, makeItem } from "./item";
 import { ITEM_BY_CODE } from "./data";
 import { lintDoc } from "./lint";
 import { starterFilter } from "./templates";
-import { ALL_GROUPS, applyChoice, readChoices, itemGroup, groupFor } from "./simple";
+import { ALL_GROUPS, applyChoice, readChoices, itemGroup, groupFor, saveMystery, deleteMystery, readMysteries, MYSTERY_PRESETS, mysteryText } from "./simple";
 
 const text = (r: ReturnType<typeof runFilter>) => r.display.lines.map((l) => l.map((x) => x.text).join("")).join("|");
 const colorOf = (r: ReturnType<typeof runFilter>) => r.display.lines.flat()[0]?.color;
@@ -80,5 +80,43 @@ describe("choices", () => {
     const lines = applyChoice(base, "item.key", { rename: "Key // %RED% hi" });
     const r = runFilter(compileDoc({ lines, eol: "\n" }), makeItem("key", { qty: 1 }), DEFAULT_CTX);
     expect(text(r)).toBe("Key / %RED% hi");
+  });
+});
+
+describe("mystery drops", () => {
+  const base = parseFilter(starterFilter()).lines;
+  const mys = { ...MYSTERY_PRESETS[0], id: "m1" };
+  const withMystery = () => {
+    let lines = saveMystery(base, mys);
+    lines = applyChoice(lines, "rune.r30", { mystery: "m1" });
+    lines = applyChoice(lines, "uni.ring", { mystery: "m1", color: "GOLD" });
+    return lines;
+  };
+  it("round-trips mysteries and item choices through the file", () => {
+    const lines = parseFilter(serializeFilter({ lines: withMystery(), eol: "\n" })).lines;
+    expect(readMysteries(lines)).toEqual([expect.objectContaining({ id: "m1", name: "Little Bastard" })]);
+    expect(readChoices(lines).get("rune.r30")).toEqual({ mystery: "m1" });
+    expect(readChoices(lines).get("uni.ring")).toEqual({ mystery: "m1", color: "GOLD" });
+  });
+  it("shows the banner on the ground and the real name once picked up or in town", () => {
+    const c = compileDoc({ lines: withMystery(), eol: "\n" });
+    const ber = makeItem("r30");
+    const ground = runFilter(c, ber, DEFAULT_CTX);
+    expect(text(ground)).toBe(mysteryText(mys));
+    expect(ground.notify?.effects.dot).toBe("60");
+    expect(text(runFilter(c, ber, { ...DEFAULT_CTX, location: "INVENTORY" }))).toContain("Ber");
+    expect(text(runFilter(c, ber, { ...DEFAULT_CTX, mapid: 109 }))).toContain("Ber");
+    // Identified uniques are no longer a mystery.
+    expect(text(runFilter(c, makeItem("rin", { quality: "unique", identified: true, title: "Stone of Jordan" }), DEFAULT_CTX))).toContain("Stone of Jordan");
+    expect(text(runFilter(c, makeItem("rin", { quality: "unique", identified: false }), DEFAULT_CTX))).toBe(mysteryText(mys));
+  });
+  it("writes rules PD2 reads cleanly, and deleting the mystery frees its items", () => {
+    const lines = withMystery();
+    const issues = lintDoc({ lines, eol: "\n" }).filter((i) => lines[i.line].note?.startsWith("@ff"));
+    expect(issues.filter((i) => i.sev !== "info").map((i) => i.msg)).toEqual([]);
+    const after = deleteMystery(lines, "m1");
+    expect(readMysteries(after)).toEqual([]);
+    expect(readChoices(after).has("rune.r30")).toBe(false);
+    expect(readChoices(after).get("uni.ring")).toEqual({ color: "GOLD" });
   });
 });

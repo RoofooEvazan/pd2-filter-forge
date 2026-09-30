@@ -258,7 +258,7 @@ function IssueRow({ i, l, def, lines, section, expanded, onToggle }: { i: Issue;
           <span className="lineno">{i.line + 1}</span>
           <div className="grow" style={{ minWidth: 0 }}>
             <div className="prow-msg">{i.msg}</div>
-            <div className="code ellipsis">
+            <div className="code wrap-line">
               <Highlighted text={l.raw.trim()} token={i.token} />
             </div>
           </div>

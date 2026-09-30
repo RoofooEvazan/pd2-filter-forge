@@ -16,11 +16,13 @@ import { LevelPicker } from "./components/LevelPicker";
 import { SimpleView } from "./components/SimpleView";
 import { PreviewView } from "./components/PreviewView";
 import { UpdateBanner } from "./components/Updates";
+import { ShopView } from "./components/ShopView";
 import { checkOnLaunch } from "./lib/updates";
 
 const SIMPLE_NAV: { view: View; icon: string; label: string; hk: string }[] = [
   { view: "simple", icon: "wand", label: "Items", hk: "1" },
   { view: "preview", icon: "eye", label: "Loot preview", hk: "2" },
+  { view: "shop", icon: "spark", label: "Shop hunting", hk: "3" },
 ];
 const NAV: { view: View; icon: string; label: string; hk: string }[] = [
   { view: "rules", icon: "rules", label: "Rules", hk: "1" },
@@ -29,6 +31,7 @@ const NAV: { view: View; icon: string; label: string; hk: string }[] = [
   { view: "problems", icon: "problems", label: "Problems", hk: "4" },
   { view: "codex", icon: "codex", label: "Codex (reference)", hk: "5" },
   { view: "source", icon: "source", label: "Source text", hk: "6" },
+  { view: "shop", icon: "spark", label: "Shop hunting", hk: "7" },
 ];
 
 export function App() {
@@ -67,7 +70,7 @@ export function App() {
       } else if (mod && !inField && e.key.toLowerCase() === "y") {
         e.preventDefault();
         actions.redo();
-      } else if (e.altKey && /^[1-7]$/.test(e.key) && getState().doc) {
+      } else if (e.altKey && /^[1-8]$/.test(e.key) && getState().doc) {
         e.preventDefault();
         const nav = getState().settings.mode === "simple" ? SIMPLE_NAV : NAV;
         const v = nav.find((n) => n.hk === e.key)?.view ?? "settings";
@@ -98,6 +101,8 @@ export function App() {
           <SimpleView />
         ) : view === "preview" ? (
           <PreviewView />
+        ) : view === "shop" ? (
+          <ShopView />
         ) : view === "rules" ? (
           <RulesView />
         ) : view === "lab" ? (

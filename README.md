@@ -21,6 +21,8 @@ Switch with the **Simple | Advanced** toggle in the top bar.
   - a minimap icon (size and color) and a drop sound, played from PD2's own sound files.
 
   It works on any filter. Choices are saved as a clearly labeled "Simple mode choices" block at the top of the file, so they win over the rest of the filter and stay readable in Advanced mode. An alert-only choice keeps the filter's own look. The Loot preview page shows a pile of typical drops.
+  - **Mystery drops:** make your own "Little/Lucky Bastard"-style banners (words, colors, decorations, icon, sound) that hide chosen items on the ground until you pick them up. Every item can opt in, and each mystery lists its items in the sidebar.
+- **Shop hunting** (both modes): pick what you're hunting for in vendor windows from class-aware suggestions or build your own (item type, quality, skill trees, class skills, single skills, stats, sockets). Give each a loud look, then check it in a mock vendor tab where hovering shows the exact tooltip.
 - **Advanced** is the full editor described below. Rule rows read in plain words by default, with a Words/Code toggle.
 
 
