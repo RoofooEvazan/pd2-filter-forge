@@ -7,6 +7,7 @@ import { authorPage, fetchAuthorFiles, fetchAuthors, fetchFilterBytes, type Auth
 import { isDesktop, joinPath, listDir, openExternal, type DirEntry } from "../lib/platform";
 import { DATA } from "../lib/data";
 import { Icon } from "./icons";
+import { VersionLine } from "./Updates";
 
 export function Home() {
   const recent = useStore((s) => s.recent);
@@ -25,6 +26,7 @@ export function Home() {
         <div>
           <h1>PD2 Filter Forge</h1>
           <p>Build Project Diablo 2 loot filters visually, test them against any item, and install them straight into the game.</p>
+          <VersionLine />
         </div>
       </div>
 

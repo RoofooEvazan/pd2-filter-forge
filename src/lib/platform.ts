@@ -66,9 +66,9 @@ export async function pickOpenPath(): Promise<string | null> {
   return typeof r === "string" ? r : null;
 }
 
-export async function pickSavePath(defaultPath?: string): Promise<string | null> {
+export async function pickSavePath(defaultPath?: string, filter = { name: "Loot filter", extensions: ["filter"] }): Promise<string | null> {
   const { save } = await import("@tauri-apps/plugin-dialog");
-  return (await save({ defaultPath, filters: [{ name: "Loot filter", extensions: ["filter"] }] })) ?? null;
+  return (await save({ defaultPath, filters: [filter] })) ?? null;
 }
 
 // ---------------------------------------------------------------- browser fallbacks

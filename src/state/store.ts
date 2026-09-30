@@ -66,6 +66,8 @@ export interface State {
   ctx: ViewContext;
   toast: { msg: string; kind: "ok" | "err" | "info"; n: number } | null;
   palette: boolean;
+  /** Open Discord post dialog, if any. */
+  discord: "help" | "share" | null;
   recent: { name: string; path: string; t: number }[];
   /** Facts about the file as loaded, for file-level checks. */
   fileFacts: { bom: boolean; nonUtf8: boolean };
@@ -117,6 +119,7 @@ let state: State = {
   ctx: load("ff.ctx", DEFAULT_CTX),
   toast: null,
   palette: false,
+  discord: null,
   recent: loadArr("ff.recent"),
   fileFacts: { bom: false, nonUtf8: false },
   refAnchor: null,
@@ -289,6 +292,9 @@ export const actions = {
   },
   setPalette(open: boolean) {
     set({ palette: open });
+  },
+  openDiscord(kind: "help" | "share" | null) {
+    set({ discord: kind });
   },
 };
 

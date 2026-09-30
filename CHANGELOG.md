@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.1 — 2026-09-30
+
+- **Post to the Roofoo Discord:** a Discord button (top bar, Problems tab and Ctrl+K) fills in the pinned prompt for **#filter-help** or **#share-your-filter** with everything Filter Forge already knows: your filter, base filter, filter level, app version, what you changed (item styles, mystery drops, shop targets) and a problem summary. Copy the post, save the files to attach (your .filter, plus the problems report for help posts), and open the channel in one click. It posts from your own Discord account; nothing is sent automatically.
+- **Problems → Copy for AI:** a plain-text report of every problem, with its line, what PD2 does, the suggestion and a preview of each fix. It starts with a short primer on how PD2 reads filters, so you can paste it straight into an AI assistant. Copy it to the clipboard or save it as a .txt; you can limit it to what's currently shown and include or leave out tidy-ups.
+- The start screen shows the app version with a **Check for updates** button, and the command palette (Ctrl+K) has a "Check for updates" command. The Settings rail button now reads "Settings & updates".
+
 ## 0.3.0 — 2026-09-30
 
 ### Shop hunting

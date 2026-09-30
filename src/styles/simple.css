@@ -971,3 +971,51 @@
 .warn-text {
   color: var(--warn);
 }
+
+.export-text {
+  width: 100%;
+  min-height: 46vh;
+  font-size: 12px;
+  line-height: 1.45;
+  white-space: pre;
+  resize: vertical;
+}
+
+/* ---------------------------------------------------------------- discord post */
+.discord-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+@media (max-width: 860px) {
+  .discord-body {
+    grid-template-columns: 1fr;
+  }
+}
+.discord-preview {
+  width: 100%;
+  min-height: 240px;
+  font-size: 12px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  resize: vertical;
+}
+.discord-steps {
+  margin: 0;
+  padding-left: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.discord-steps li::marker {
+  color: var(--muted);
+  font-weight: 700;
+}
+.discord-steps li.done::marker {
+  color: var(--ok);
+}
+.discord-steps li.done > .btn::after {
+  content: " \2713";
+  color: var(--ok);
+}

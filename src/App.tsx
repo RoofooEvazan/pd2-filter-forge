@@ -17,6 +17,7 @@ import { SimpleView } from "./components/SimpleView";
 import { PreviewView } from "./components/PreviewView";
 import { UpdateBanner } from "./components/Updates";
 import { ShopView } from "./components/ShopView";
+import { DiscordDialog } from "./components/DiscordDialog";
 import { checkOnLaunch } from "./lib/updates";
 
 const SIMPLE_NAV: { view: View; icon: string; label: string; hk: string }[] = [
@@ -39,6 +40,7 @@ export function App() {
   const hasDoc = useStore((s) => !!s.doc);
   const view = useStore((s) => s.view);
   const palette = useStore((s) => s.palette);
+  const discord = useStore((s) => s.discord);
   const toast = useStore((s) => s.toast);
 
   useEffect(() => {
@@ -120,6 +122,7 @@ export function App() {
         )}
       </main>
       {palette && <CommandPalette />}
+      {discord && <DiscordDialog initial={discord} />}
       {toast && (
         <div className={`toast ${toast.kind}`} role="status">
           <Icon name={toast.kind === "err" ? "problems" : toast.kind === "info" ? "info" : "check"} />
@@ -181,6 +184,9 @@ function TopBar() {
       )}
       {hasDoc && (
         <>
+          <button className="btn ghost" onClick={() => actions.openDiscord("share")} title="Ask for help or share your filter on the Roofoo Discord">
+            <Icon name="chat" size={16} /> Discord
+          </button>
           <button className="btn" onClick={() => save()} title="Save (Ctrl+S)">
             <Icon name="save" size={16} /> Save
           </button>
@@ -220,7 +226,7 @@ function Rail() {
           <Icon name="home" />
         </button>
       )}
-      <button className={`tip ${view === "settings" ? "on" : ""}`} data-tip="Settings (Alt+7)" onClick={() => actions.setView("settings")}>
+      <button className={`tip ${view === "settings" ? "on" : ""}`} data-tip="Settings & updates" onClick={() => actions.setView("settings")}>
         <Icon name="settings" />
       </button>
     </nav>

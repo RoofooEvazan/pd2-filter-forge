@@ -86,3 +86,22 @@ export function UpdatesSettings() {
     </>
   );
 }
+
+/** "Version 0.3.0 · Check for updates" for the start screen. */
+export function VersionLine() {
+  const u = useUpdate();
+  return (
+    <div className="row small wrap" style={{ gap: 8, marginTop: 6 }}>
+      <span className="muted">Version {APP_VERSION}</span>
+      {u.status === "available" ? (
+        <button className="btn sm primary" onClick={() => openExternal(u.latest!.installer ?? u.latest!.url)}>
+          <Icon name="download" size={13} /> Download {u.latest!.version}
+        </button>
+      ) : (
+        <button className="btn sm ghost" disabled={u.status === "checking"} onClick={() => checkForUpdates()}>
+          {u.status === "checking" ? "Checking…" : u.status === "current" ? "Up to date · check again" : u.status === "error" ? "Couldn't check · try again" : "Check for updates"}
+        </button>
+      )}
+    </div>
+  );
+}

@@ -138,3 +138,21 @@ export async function soundUrl(name: string): Promise<string | null> {
     return null;
   }
 }
+
+/** The open filter as it would be saved. */
+export function filterBytes(): Uint8Array {
+  return currentBytes();
+}
+
+/** Save files for attaching somewhere (e.g. a Discord post): pick a folder, write them all. */
+export async function saveAttachments(files: { name: string; bytes: Uint8Array }[]): Promise<string | null> {
+  if (!isDesktop) {
+    for (const f of files) browserDownload(f.name, f.bytes);
+    return "your downloads";
+  }
+  const { open } = await import("@tauri-apps/plugin-dialog");
+  const dir = await open({ directory: true, title: "Choose a folder for the files to attach" });
+  if (typeof dir !== "string") return null;
+  for (const f of files) await writeFileBytes(joinPath(dir, f.name), f.bytes, false);
+  return dir;
+}

@@ -1,4 +1,5 @@
 // Ctrl+K: jump to any section, rule, alias or keyword, or run a command.
+import { checkForUpdates } from "../lib/updates";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { actions, getState, type View } from "../state/store";
 import { useAnalysis } from "../state/analysis";
@@ -46,6 +47,13 @@ export function CommandPalette() {
         : []),
       { group: "Go to", title: "Codex", run: go("codex") },
       { group: "Go to", title: "Settings", run: go("settings") },
+      ...(hasDoc
+        ? [
+            { group: "Discord", title: "Ask for help on Discord (#filter-help)", run: () => actions.openDiscord("help") },
+            { group: "Discord", title: "Share my filter on Discord (#share-your-filter)", run: () => actions.openDiscord("share") },
+          ]
+        : []),
+      { group: "App", title: "Check for updates", run: () => { go("settings")(); void checkForUpdates(); } },
     ];
     out.push(...base.filter((c) => m(c.title)));
     if (hasDoc) {

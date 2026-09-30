@@ -8,6 +8,8 @@ import { useAnalysis, type Analysis } from "../state/analysis";
 import { editLine, type Line } from "../lib/document";
 import { CHECKS, CHECK_BY_ID, IMPACTS, type CheckDef, type Fix, type Impact, type Issue } from "../lib/lint";
 import { runDeepChecks } from "../lib/deep";
+import { problemsReport } from "../lib/report";
+import { browserDownload, isDesktop, pickSavePath, writeFileBytes } from "../lib/platform";
 import { Icon } from "./icons";
 
 const IMPACT_ORDER: Impact[] = ["breaks", "broadens", "misleads", "display", "tidy"];
@@ -66,6 +68,7 @@ export function ProblemsView() {
   const [q, setQ] = useState("");
   const [closed, setClosed] = useState<Set<string>>(new Set());
   const [showChecks, setShowChecks] = useState(false);
+  const [showExport, setShowExport] = useState(false);
 
   const deepFresh = deep.forLines === a.lines;
   const all: Issue[] = useMemo(() => [...a.issues, ...(deepFresh ? deep.issues : [])], [a.issues, deep.issues, deepFresh]);
@@ -118,6 +121,12 @@ export function ProblemsView() {
             PD2 never reports filter errors — it silently drops or reinterprets what it doesn't understand. Each finding says what's wrong, what to do, and (expanded) exactly what PD2 does, with a link to the engine reference.
           </p>
         </div>
+        <button className="btn" onClick={() => actions.openDiscord("help")} title="Post in #filter-help on the Roofoo Discord, with your filter and this report attached">
+          <Icon name="chat" size={15} /> Ask on Discord
+        </button>
+        <button className="btn" onClick={() => setShowExport(true)} disabled={total === 0} title="A text report of every problem and suggested fix, ready to paste into an AI assistant">
+          <Icon name="copy" size={15} /> Copy for AI
+        </button>
         <button className="btn" onClick={() => setShowChecks(true)}>
           <Icon name="settings" size={15} /> Checks
         </button>
@@ -218,6 +227,15 @@ export function ProblemsView() {
         })}
       </div>
       {showChecks && <ChecksDialog onClose={() => setShowChecks(false)} />}
+      {showExport && (
+        <ExportDialog
+          all={all}
+          shown={groups.flatMap(([, x]) => x)}
+          filtered={impact !== "all" || !!q.trim()}
+          lines={a.lines}
+          onClose={() => setShowExport(false)}
+        />
+      )}
     </div>
   );
 }
@@ -435,6 +453,79 @@ function ChecksDialog({ onClose }: { onClose: () => void }) {
           </button>
           <button className="btn primary" onClick={onClose}>
             Done
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function ExportDialog({ all, shown, filtered, lines, onClose }: { all: Issue[]; shown: Issue[]; filtered: boolean; lines: Line[]; onClose: () => void }) {
+  const fileName = useStore((s) => s.file?.name);
+  const [onlyShown, setOnlyShown] = useState(filtered);
+  const [tidy, setTidy] = useState(false);
+  const pool = (onlyShown ? shown : all).filter((i) => tidy || CHECK_BY_ID.get(i.check)?.impact !== "tidy");
+  const text = useMemo(
+    () => problemsReport(pool, lines, { fileName, filtered: onlyShown && filtered ? "only the ones currently shown in Filter Forge" : !tidy ? "tidy-ups left out" : undefined }),
+    [pool, lines, fileName, onlyShown, filtered, tidy]
+  );
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      actions.toast(`Copied ${pool.length} problem${pool.length === 1 ? "" : "s"} — paste it into your AI assistant.`);
+    } catch {
+      actions.toast("Couldn't copy; use Save .txt instead.");
+    }
+  };
+  const save = async () => {
+    const base = (fileName ?? "filter").replace(/\.filter$/i, "");
+    const name = `${base} - problems.txt`;
+    // Windows line endings so it opens cleanly in Notepad.
+    const bytes = new TextEncoder().encode(text.replace(/\n/g, "\r\n"));
+    if (!isDesktop) return browserDownload(name, bytes);
+    const path = await pickSavePath(name, { name: "Text", extensions: ["txt"] });
+    if (!path) return;
+    await writeFileBytes(path, bytes, false);
+    actions.toast(`Saved ${name}.`);
+  };
+  return (
+    <>
+      <div className="scrim" onClick={onClose} />
+      <div className="dialog" style={{ width: "min(900px, 94vw)" }}>
+        <div className="dialog-head">
+          <Icon name="copy" />
+          <h2>Problems report for AI</h2>
+          <span className="small muted">
+            {pool.length} problem{pool.length === 1 ? "" : "s"} · {text.length.toLocaleString()} characters
+          </span>
+          <button className="btn icon ghost" onClick={onClose}>
+            <Icon name="x" />
+          </button>
+        </div>
+        <div className="dialog-body">
+          <p className="small muted" style={{ margin: 0 }}>
+            Every problem with its line, what PD2 does, and the suggested fixes — plus a short primer on how PD2 reads filters, so the assistant judges fixes correctly. Paste it into ChatGPT, Claude or any other assistant.
+          </p>
+          <div className="row wrap">
+            {filtered && (
+              <label className="row small">
+                <button className={`switch ${onlyShown ? "on" : ""}`} onClick={() => setOnlyShown(!onlyShown)} />
+                Only what's shown now ({shown.length})
+              </label>
+            )}
+            <label className="row small">
+              <button className={`switch ${tidy ? "on" : ""}`} onClick={() => setTidy(!tidy)} />
+              Include tidy-ups
+            </label>
+          </div>
+          <textarea className="input mono export-text" readOnly value={text} onFocus={(e) => e.currentTarget.select()} />
+        </div>
+        <div className="dialog-foot">
+          <button className="btn" onClick={save}>
+            <Icon name="save" size={15} /> Save .txt
+          </button>
+          <button className="btn primary" onClick={copy} disabled={!pool.length}>
+            <Icon name="copy" size={15} /> Copy to clipboard
           </button>
         </div>
       </div>
