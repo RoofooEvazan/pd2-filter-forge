@@ -28,6 +28,9 @@ export function Home() {
           <p>Build Project Diablo 2 loot filters visually, test them against any item, and install them straight into the game.</p>
           <VersionLine />
         </div>
+        <button className="btn" style={{ marginLeft: "auto", alignSelf: "center" }} onClick={() => actions.setView("guide")}>
+          <Icon name="help" size={16} /> How-to guide
+        </button>
       </div>
 
       {draft && (

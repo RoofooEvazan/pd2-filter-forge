@@ -5,7 +5,7 @@ import { openExternal } from "../lib/platform";
 
 function inline(text: string, key = 0): ReactNode[] {
   const out: ReactNode[] = [];
-  const re = /(`[^`]+`)|(\*\*[^*]+\*\*)|(\*[^*\s][^*]*\*)|(\[[^\]]+\]\([^)]+\))/g;
+  const re = /(`[^`]+`)|(!\[[^\]]*\]\([^)]+\))|(\*\*[^*]+\*\*)|(\*[^*\s][^*]*\*)|(\[[^\]]+\]\([^)]+\))/g;
   let last = 0;
   let m: RegExpExecArray | null;
   let k = key;
@@ -13,6 +13,10 @@ function inline(text: string, key = 0): ReactNode[] {
     if (m.index > last) out.push(text.slice(last, m.index));
     const t = m[0];
     if (t.startsWith("`")) out.push(<code key={k++}>{t.slice(1, -1)}</code>);
+    else if (t.startsWith("![")) {
+      const im = t.match(/^!\[([^\]]*)\]\(([^)]+)\)$/)!;
+      out.push(<img key={k++} className="md-img" src={im[2]} alt={im[1]} title={im[1]} loading="lazy" />);
+    }
     else if (t.startsWith("**")) out.push(<b key={k++}>{inline(t.slice(2, -2), k * 100)}</b>);
     else if (t.startsWith("*")) out.push(<i key={k++}>{inline(t.slice(1, -1), k * 100)}</i>);
     else {
@@ -204,7 +208,7 @@ function parse(md: string): ReactNode[] {
   return out;
 }
 
-export function Markdown({ source, anchor }: { source: string; anchor?: { id: string; n: number } | null }) {
+export function Markdown({ source, anchor, className }: { source: string; anchor?: { id: string; n: number } | null; className?: string }) {
   const nodes = useMemo(() => parse(source), [source]);
   useEffect(() => {
     if (!anchor) return;
@@ -215,5 +219,5 @@ export function Markdown({ source, anchor }: { source: string; anchor?: { id: st
       setTimeout(() => el.classList.remove("flash"), 1600);
     }
   }, [anchor]);
-  return <div className="md">{nodes}</div>;
+  return <div className={`md ${className ?? ""}`}>{nodes}</div>;
 }

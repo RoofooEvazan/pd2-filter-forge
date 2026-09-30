@@ -47,12 +47,14 @@ export function CommandPalette() {
         : []),
       { group: "Go to", title: "Codex", run: go("codex") },
       { group: "Go to", title: "Settings", run: go("settings") },
+      { group: "Go to", title: "How-to guide", run: go("guide") },
       ...(hasDoc
         ? [
             { group: "Discord", title: "Ask for help on Discord (#filter-help)", run: () => actions.openDiscord("help") },
             { group: "Discord", title: "Share my filter on Discord (#share-your-filter)", run: () => actions.openDiscord("share") },
           ]
         : []),
+      ...(hasDoc ? [{ group: "Features", title: "Real names on unidentified items", run: () => { actions.setMode("advanced"); actions.setView("definitions"); } }] : []),
       { group: "App", title: "Check for updates", run: () => { go("settings")(); void checkForUpdates(); } },
     ];
     out.push(...base.filter((c) => m(c.title)));

@@ -58,3 +58,15 @@ describe("on the real file", () => {
     console.log("alias.order:", issues.filter((i) => i.check === "alias.order").length);
   });
 });
+
+describe("removing a word leaves a valid rule", () => {
+  it("drops the AND/OR next to it", async () => {
+    const { tidyOperators } = await import("./lint");
+    expect(tidyOperators(" OR t61 OR t62")).toBe("t61 OR t62");
+    expect(tidyOperators("(t61 OR  OR t62)")).toBe("(t61 OR t62)");
+    expect(tidyOperators("RARE ( OR cqv2) AND ")).toBe("RARE (cqv2)");
+    expect(tidyOperators("A AND ()")).toBe("A");
+    const i = lint("ItemDisplay[t60 OR t61 OR t62]: %NAME%").find((x) => x.check === "cond.item-unknown")!;
+    expect(i.fixes[0].key).toBe("t61 OR t62");
+  });
+});

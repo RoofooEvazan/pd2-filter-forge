@@ -1,7 +1,7 @@
 {
   "name": "pd2-filter-forge",
   "private": true,
-  "version": "0.3.3",
+  "version": "0.3.4",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -9,6 +9,9 @@
     "preview": "vite preview",
     "test": "vitest run",
     "data": "node scripts/build-data.mjs",
+    "site": "node scripts/build-site.mjs",
+    "guide:capture": "node scripts/capture-guide.mjs",
+    "site:deploy": "bash scripts/deploy-site.sh",
     "desktop": "tauri dev",
     "desktop:build": "tauri build",
     "tauri": "tauri"
@@ -26,6 +29,10 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^4.7.0",
+    "gifenc": "^1.0.3",
+    "marked": "^18.0.14",
+    "pngjs": "^7.0.0",
+    "puppeteer-core": "^24.43.1",
     "typescript": "~5.8",
     "vite": "^6.4.3",
     "vitest": "^3.2.7"

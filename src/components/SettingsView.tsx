@@ -3,6 +3,7 @@ import { isDesktop } from "../lib/platform";
 import { pd2Dir, saveAs } from "../state/files";
 import { DATA } from "../lib/data";
 import { UpdatesSettings } from "./Updates";
+import { ThemePicker } from "./ThemePicker";
 
 const ACCENTS = ["#d9a441", "#c7b377", "#e0603a", "#b04ad9", "#4a9de0", "#3fbf8a", "#e04a6a", "#9aa7b8"];
 
@@ -18,19 +19,7 @@ export function SettingsView() {
         <UpdatesSettings />
         <div className="divider" style={{ gridColumn: "1 / -1" }} />
         <span>Theme</span>
-        <div className="seg">
-          {(
-            [
-              ["sanctuary", "Sanctuary (dark)"],
-              ["midnight", "Midnight"],
-              ["parchment", "Parchment (light)"],
-            ] as const
-          ).map(([t, label]) => (
-            <button key={t} className={s.theme === t ? "on" : ""} onClick={() => set({ theme: t })}>
-              {label}
-            </button>
-          ))}
-        </div>
+        <ThemePicker />
         <span>Accent color</span>
         <div className="row">
           {ACCENTS.map((c) => (
@@ -103,7 +92,7 @@ export function SettingsView() {
         <div className="divider" style={{ gridColumn: "1 / -1" }} />
         <span>Reset</span>
         <div>
-          <button className="btn danger" onClick={() => set({ ...DEFAULT_SETTINGS, pd2Dir: s.pd2Dir })}>
+          <button className="btn danger" onClick={() => set({ ...DEFAULT_SETTINGS, pd2Dir: s.pd2Dir, customThemes: s.customThemes })}>
             Restore default appearance
           </button>
         </div>

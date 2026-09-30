@@ -7,7 +7,7 @@ import { composeOutput } from "./output";
 import { CLASS_NAMES, TAB_NAMES } from "./spec";
 import { ITEM_BY_CODE, SKILL_BY_ID } from "./data";
 import { makeItem, type Quality, type TestItem } from "./item";
-import { SHOP_BLURB, SHOP_HEADER, SHOP_TAG, blockMask, isShopLine } from "./simple";
+import { SHOP_BLURB, SHOP_HEADER, SHOP_TAG, blockAnchor, blockMask, isShopLine } from "./simple";
 
 export type ShopQuality = "white" | "superior" | "magic" | "rare";
 
@@ -324,10 +324,8 @@ export function writeShop(lines: Line[], targets: ShopTarget[], options: ShopOpt
   let at: number;
   if (first >= 0) at = lines.slice(0, first).filter((_, i) => !mask[i]).length;
   else {
-    // Above the Simple mode block and every other rule.
-    const simple = kept.findIndex((l) => l.kind === "comment" && l.text === "=================== SIMPLE MODE CHOICES ===================");
-    const firstRule = kept.findIndex((l) => l.kind === "rule");
-    at = simple >= 0 ? simple : firstRule >= 0 ? firstRule : kept.length;
+    // Above the Simple mode block and every other rule (below unidentified names).
+    at = blockAnchor(kept, 1);
   }
   if (!targets.length && !options.dimOthers) return kept;
   const block: Line[] = [makeComment(SHOP_HEADER), makeComment(SHOP_BLURB), makeComment(`${OPTS}${JSON.stringify(options)}`)];

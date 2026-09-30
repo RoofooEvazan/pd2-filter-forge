@@ -406,8 +406,46 @@ function isManagedLine(l: Line) {
   );
 }
 
+/** Unidentified item names keep their own block, first of all (see unid.ts). */
+export const UNID_TAG = "@ffu ";
+export const UNID_HEADER = "=================== UNIDENTIFIED ITEM NAMES ===================";
+export const UNID_BLURB = " Made in PD2 Filter Forge: real names for unidentified uniques and sets. They continue, so your rules below still style them.";
+
+export function isUnidLine(l: Line) {
+  return (l.kind === "rule" && !!l.note?.startsWith(UNID_TAG)) || (l.kind === "comment" && (l.text === UNID_HEADER || l.text === UNID_BLURB || !!l.text?.startsWith(UNID_TAG)));
+}
+
+/**
+ * Where a managed block goes when it isn't in the file yet. The blocks keep a fixed order at the
+ * top of the rules: unidentified names (they continue), then shop hunting (shops only), then the
+ * Simple mode choices (they stop).
+ */
+export function blockAnchor(kept: Line[], rank: 0 | 1 | 2): number {
+  const order = [isUnidLine, isShopLine, isManagedLine];
+  let after = -1;
+  for (let r = 0; r < rank; r++) after = Math.max(after, blockMask(kept, order[r]).lastIndexOf(true));
+  if (after >= 0) return after + 1;
+  const firsts = order.slice(rank + 1).map((f) => blockMask(kept, f).indexOf(true)).filter((i) => i >= 0);
+  if (firsts.length) return Math.min(...firsts);
+  return firstRuleAnchor(kept);
+}
+
 export function isShopLine(l: Line) {
   return (l.kind === "rule" && !!l.note?.startsWith(SHOP_TAG)) || (l.kind === "comment" && (l.text === SHOP_HEADER || l.text === SHOP_BLURB || !!l.text?.startsWith(SHOP_TAG)));
+}
+
+/**
+ * Where a new block goes: before the first rule, and before the comments and blank lines right
+ * above it (its section header), so the header stays with the rules it describes.
+ */
+export function firstRuleAnchor(lines: Line[]): number {
+  const first = lines.findIndex((l) => l.kind === "rule");
+  if (first < 0) return lines.length;
+  let at = first;
+  while (at > 0 && (lines[at - 1].kind === "comment" || lines[at - 1].kind === "blank")) at--;
+  // Keep a blank line between whatever came before and the new block.
+  while (at < first && lines[at].kind === "blank") at++;
+  return at;
 }
 
 /** Managed lines, plus the blank line the block ends with. */
@@ -418,7 +456,7 @@ export function blockMask(lines: Line[], is: (l: Line) => boolean): boolean[] {
 }
 
 export function isManaged(l: Line) {
-  return isManagedLine(l) || isShopLine(l);
+  return isManagedLine(l) || isShopLine(l) || isUnidLine(l);
 }
 
 export function readChoices(lines: Line[]): Map<string, SimpleStyle> {
@@ -499,11 +537,8 @@ function writeBlock(lines: Line[], choices: Map<string, SimpleStyle>, mysteries:
   if (firstManaged >= 0) {
     at = lines.slice(0, firstManaged).filter((_, i) => !mask[i]).length;
   } else {
-    // Below the shop block when there is one (shop rules must win in vendor windows), else before the first rule.
-    const shop = blockMask(kept, isShopLine);
-    const lastShop = shop.lastIndexOf(true);
-    const firstRule = kept.findIndex((l) => l.kind === "rule");
-    at = lastShop >= 0 ? lastShop + 1 : firstRule >= 0 ? firstRule : kept.length;
+    // Below the unidentified-names and shop blocks (shop rules must win in vendor windows).
+    at = blockAnchor(kept, 2);
   }
   const known = new Set(mysteries.map((m) => m.id));
   for (const [cid, s] of choices) {

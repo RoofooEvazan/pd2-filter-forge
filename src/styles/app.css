@@ -706,22 +706,22 @@ a {
   padding: 0 1px;
   font-weight: 700;
 }
-:root[data-theme="parchment"] .tok.item {
+:root[data-theme="light"] .tok.item {
   color: #8a5a00;
 }
-:root[data-theme="parchment"] .tok.flag {
+:root[data-theme="light"] .tok.flag {
   color: #1d4f91;
 }
-:root[data-theme="parchment"] .tok.value,
-:root[data-theme="parchment"] .tok.param,
-:root[data-theme="parchment"] .tok.add {
+:root[data-theme="light"] .tok.value,
+:root[data-theme="light"] .tok.param,
+:root[data-theme="light"] .tok.add {
   color: #2f6b1f;
 }
-:root[data-theme="parchment"] .tok.alias {
+:root[data-theme="light"] .tok.alias {
   color: #7a2a9a;
 }
-:root[data-theme="parchment"] .tok.formula,
-:root[data-theme="parchment"] .tok.inline {
+:root[data-theme="light"] .tok.formula,
+:root[data-theme="light"] .tok.inline {
   color: #0f6b5f;
 }
 

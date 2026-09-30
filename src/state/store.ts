@@ -1,18 +1,21 @@
 // App state: the open filter, selection, undo history and settings. A tiny external store read
 // through useSyncExternalStore, so components subscribe to just the slice they use.
+import type { Theme } from "../lib/themes";
 import { useSyncExternalStore } from "react";
 import { editLine, parseFilter, serializeFilter, type FilterDoc, type Line } from "../lib/document";
 import { DEFAULT_CTX, makeItem, type TestItem, type ViewContext } from "../lib/item";
 import type { Encoding } from "../lib/platform";
 
-export type View = "simple" | "preview" | "shop" | "rules" | "lab" | "definitions" | "problems" | "codex" | "source" | "settings";
+export type View = "simple" | "preview" | "shop" | "guide" | "rules" | "lab" | "definitions" | "problems" | "codex" | "source" | "settings";
 export type Mode = "simple" | "advanced";
 
 export interface Settings {
   mode: Mode;
   /** Rule list rows show plain words or filter code. */
   ruleText: "plain" | "code";
-  theme: "sanctuary" | "midnight" | "parchment";
+  /** A built-in theme id (see lib/themes) or a custom theme's id. */
+  theme: string;
+  customThemes: Theme[];
   accent: string;
   density: "comfortable" | "compact";
   fontScale: number;
@@ -30,6 +33,7 @@ export const DEFAULT_SETTINGS: Settings = {
   mode: "simple",
   ruleText: "plain",
   theme: "sanctuary",
+  customThemes: [],
   accent: "#d9a441",
   density: "comfortable",
   fontScale: 1,
@@ -72,6 +76,8 @@ export interface State {
   simpleCat: string;
   /** Features the user has opened at least once (hides their NEW badges). */
   seen: string[];
+  /** A theme being edited, shown live before it is saved. */
+  themePreview: Theme | null;
   recent: { name: string; path: string; t: number }[];
   /** Facts about the file as loaded, for file-level checks. */
   fileFacts: { bom: boolean; nonUtf8: boolean };
@@ -126,6 +132,7 @@ let state: State = {
   discord: null,
   simpleCat: "runes",
   seen: loadArr<string>("ff.seen"),
+  themePreview: null,
   recent: loadArr("ff.recent"),
   fileFacts: { bom: false, nonUtf8: false },
   refAnchor: null,
@@ -159,6 +166,33 @@ function commit(lines: Line[], extra: Partial<State> = {}) {
   });
 }
 
+// ---- screen history for the mouse back/forward buttons
+interface NavSnap {
+  view: View;
+  mode: Mode;
+  simpleCat: string;
+  selected: string | null;
+}
+const navPast: NavSnap[] = [];
+const navFuture: NavSnap[] = [];
+const snapshot = (): NavSnap => ({ view: state.view, mode: state.settings.mode, simpleCat: state.simpleCat, selected: state.selected });
+let rememberedThisTick = false;
+function remember() {
+  // Several changes from one click (category, then screen) are one step back.
+  if (rememberedThisTick) return;
+  rememberedThisTick = true;
+  queueMicrotask(() => (rememberedThisTick = false));
+  const cur = snapshot();
+  const last = navPast[navPast.length - 1];
+  if (!last || last.view !== cur.view || last.mode !== cur.mode || last.simpleCat !== cur.simpleCat || last.selected !== cur.selected) navPast.push(cur);
+  if (navPast.length > 100) navPast.shift();
+  navFuture.length = 0;
+}
+function restore(s: NavSnap) {
+  if (s.mode !== state.settings.mode) actions.setSettings({ mode: s.mode });
+  set({ view: s.view, simpleCat: s.simpleCat, selected: s.selected, ...(s.selected && s.view === "rules" ? { reveal: { id: s.selected, n: Date.now() } } : {}) });
+}
+
 export const actions = {
   openText(text: string, file: Omit<OpenFile, "savedLines">, dirty = false, nonUtf8 = false) {
     const doc = parseFilter(text);
@@ -184,7 +218,22 @@ export const actions = {
     set({ file: { ...state.file, ...patch, savedLines: state.doc.lines } });
   },
   setView(view: View) {
+    if (view !== state.view) remember();
     set({ view });
+  },
+  /** Mouse back button / Alt+Left: the previous screen. */
+  navBack() {
+    const prev = navPast.pop();
+    if (!prev) return;
+    navFuture.push(snapshot());
+    restore(prev);
+  },
+  /** Mouse forward button / Alt+Right. */
+  navForward() {
+    const next = navFuture.pop();
+    if (!next) return;
+    navPast.push(snapshot());
+    restore(next);
   },
   /** Open the engine reference at a section (Advanced mode Codex). */
   openReference(id: string) {
@@ -195,15 +244,17 @@ export const actions = {
     set({ deep: { ...state.deep, ...patch } });
   },
   setMode(mode: Mode) {
+    if (mode !== state.settings.mode) remember();
     actions.setSettings({ mode });
     const v = state.view;
-    if (mode === "simple" && !["simple", "preview", "shop", "settings"].includes(v)) set({ view: "simple" });
+    if (mode === "simple" && !["simple", "preview", "shop", "guide", "settings"].includes(v)) set({ view: "simple" });
     if (mode === "advanced" && (v === "simple" || v === "preview")) set({ view: v === "preview" ? "lab" : "rules" });
   },
   select(id: string | null, reveal = false) {
     set({ selected: id, ...(reveal && id ? { reveal: { id, n: Date.now() } } : {}) });
   },
   goTo(id: string) {
+    remember();
     // Jumping to a rule is an Advanced mode action.
     if (state.settings.mode !== "advanced") actions.setSettings({ mode: "advanced" });
     set({ view: "rules", selected: id, reveal: { id, n: Date.now() } });
@@ -302,7 +353,11 @@ export const actions = {
   openDiscord(kind: "help" | "share" | null) {
     set({ discord: kind });
   },
+  previewTheme(t: Theme | null) {
+    set({ themePreview: t });
+  },
   setSimpleCat(cat: string) {
+    if (cat !== state.simpleCat) remember();
     set({ simpleCat: cat });
   },
   markSeen(feature: string) {

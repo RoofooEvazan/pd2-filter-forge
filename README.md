@@ -4,7 +4,9 @@ A desktop editor for Project Diablo 2 loot filters. Build a filter from scratch 
 
 ## Download
 
-Get the latest Windows build from [Releases](https://github.com/RoofooEvazan/pd2-filter-forge/releases/latest):
+**Website, download and how-to guide: https://roofooevazan.github.io/pd2-filter-forge/** (the same guide is built into the app).
+
+Or get the latest Windows build from [Releases](https://github.com/RoofooEvazan/pd2-filter-forge/releases/latest):
 
 - `PD2-Filter-Forge_x.y.z_x64-setup.exe` installs the app (Start menu entry, uninstaller).
 - `PD2-Filter-Forge_x.y.z_portable.exe` runs without installing.
@@ -90,6 +92,12 @@ If the project lives under a virtualized Windows path (like the Claude app's scr
 1. Bump the version in `package.json`, `src-tauri/tauri.conf.json` and `src-tauri/Cargo.toml`.
 2. Add the release notes to the top of `CHANGELOG.md`.
 3. Build (`npm run desktop:build`), then tag and publish a GitHub release named `vX.Y.Z` with those notes, attaching the installer and the portable exe (named `PD2-Filter-Forge_X.Y.Z_x64-setup.exe` and `PD2-Filter-Forge_X.Y.Z_portable.exe`, which is what the update check looks for).
+
+## Website and guide
+
+- `docs/guide.md` is the how-to guide. The app shows it in the **How-to guide** tab, and `npm run site` turns it into the website in `site/`.
+- `npm run guide:capture` retakes the guide's screenshots and GIFs (`public/guide/`) from the running dev server (`npm run dev`) with Microsoft Edge. The dev server accepts `?demo&mode=simple&view=shop` style links for this.
+- `npm run site:deploy` builds and publishes `site/` to the `gh-pages` branch (GitHub Pages).
 
 ## Game data
 

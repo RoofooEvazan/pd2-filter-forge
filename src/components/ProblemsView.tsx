@@ -370,6 +370,10 @@ function Diff({ before, after }: { before: string; after: string }) {
   while (p < before.length && p < after.length && before[p] === after[p]) p++;
   let s = 0;
   while (s < before.length - p && s < after.length - p && before[before.length - 1 - s] === after[after.length - 1 - s]) s++;
+  // Snap the changed part to whole words so "t60 OR t61" → "t61" doesn't highlight "0 OR t6".
+  const word = /[A-Za-z0-9_%]/;
+  while (p > 0 && word.test(before[p - 1])) p--;
+  while (s > 0 && word.test(before[before.length - s])) s--;
   const ctx = 40;
   const crop = (t: string) => {
     const head = t.slice(0, p);

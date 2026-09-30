@@ -26,6 +26,7 @@ import {
 import { D2Label, MapIcons } from "./D2Label";
 import { Icon } from "./icons";
 import { SoundGrid } from "./SoundGrid";
+import { UnidPanel } from "./UnidPanel";
 import { MysteryBanner, MysteryEditor, MysteryPresets } from "./Mystery";
 
 const CHANGES = "changes";
@@ -146,6 +147,7 @@ export function SimpleView() {
                   : `${catInfo?.blurb} This is exactly how your filter shows them right now. Click one to change it.`}
             </p>
           </div>
+          {!q && (cat === "uniques" || cat === "sets") && <UnidPanel compact />}
           {mysId && !mystery && !q && (
             <div className="mystery-howto">
               <div>

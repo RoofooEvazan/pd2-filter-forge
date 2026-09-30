@@ -47,7 +47,8 @@ export function ShopView() {
   const cls = ctx.cls;
   const { targets, options } = useMemo(() => readShop(a.lines), [a.lines]);
   const [sel, setSel] = useState<string | null>(null);
-  const [gallery, setGallery] = useState(targets.length === 0);
+  const [tab, setTab] = useState<"targets" | "vendor">("targets");
+  const [adding, setAdding] = useState(false);
   const selected = targets.find((t) => t.id === sel) ?? targets[0];
   useEffect(() => actions.markSeen("shop"), []);
 
@@ -56,18 +57,20 @@ export function ShopView() {
   const add = (t: ShopTarget) => {
     save([...targets, t]);
     setSel(t.id);
+    setTab("targets");
+    setAdding(false);
   };
 
   return (
     <div className="page shop-page">
-      <div className="row wrap" style={{ alignItems: "flex-start", marginBottom: 14 }}>
-        <div className="grow" style={{ minWidth: 280 }}>
-          <h2>Shop hunting</h2>
-          <p className="lead" style={{ marginBottom: 0 }}>
-            Tell the filter what you're hunting for in vendor windows. Matching items get a label that's impossible to miss when you hover them, and everything else can fade into gray.
+      <div className="shop-top">
+        <div className="grow" style={{ minWidth: 260 }}>
+          <h2 style={{ marginBottom: 4 }}>Shop hunting</h2>
+          <p className="lead" style={{ margin: 0 }}>
+            Tell the filter what to look for in vendor windows. Matching items get a label you can't miss when you hover them.
           </p>
         </div>
-        <label className="field" style={{ width: 180 }}>
+        <label className="field" style={{ width: 170 }}>
           <span className="label">I'm playing</span>
           <select className="select" value={cls} onChange={(e) => actions.setCtx({ cls: Number(e.target.value) })}>
             {CLASS_NAMES.map((n, i) => (
@@ -77,52 +80,100 @@ export function ShopView() {
             ))}
           </select>
         </label>
-        <label className="row small" style={{ alignSelf: "flex-end", paddingBottom: 6 }} title="Every other item in vendor windows is shown in plain gray">
+        <label className="row small shop-dim" title="Every other item in vendor windows is shown in plain gray">
           <button className={`switch ${options.dimOthers ? "on" : ""}`} onClick={() => save(targets, { ...options, dimOthers: !options.dimOthers })} />
           Gray out everything else in shops
         </label>
-        <button className={`btn ${gallery ? "" : "primary"}`} style={{ alignSelf: "flex-end" }} onClick={() => setGallery(!gallery)}>
-          <Icon name="spark" size={15} /> {gallery ? "Hide suggestions" : "Suggestions"}
+      </div>
+
+      <div className="shop-tabs">
+        <div className="seg">
+          <button className={tab === "targets" ? "on" : ""} onClick={() => setTab("targets")}>
+            <Icon name="spark" size={14} /> Targets ({targets.length})
+          </button>
+          <button className={tab === "vendor" ? "on" : ""} onClick={() => setTab("vendor")}>
+            <Icon name="eye" size={14} /> Vendor preview
+          </button>
+        </div>
+        <div className="grow" />
+        <button className="btn primary" onClick={() => setAdding(true)}>
+          <Icon name="plus" size={15} /> Add a target
         </button>
       </div>
 
-      {gallery && <Gallery cls={cls} onAdd={add} have={targets} />}
-
-      <div className="shop-body">
-        <div className="shop-list">
-          <div className="section-title">What you're hunting ({targets.length})</div>
-          {targets.map((t) => (
-            <TargetRow key={t.id} t={t} cls={cls} on={selected?.id === t.id} onClick={() => setSel(t.id)} onToggle={() => update({ ...t, on: !t.on })} />
-          ))}
-          {targets.length === 0 && <div className="small muted">Nothing yet. Pick a suggestion above, or start from scratch.</div>}
-          <button className="btn" onClick={() => add(blankTarget(cls))}>
-            <Icon name="plus" size={15} /> New target
-          </button>
-          {targets.length > 1 && <div className="small faint">When an item fits several targets, the most specific one (more requirements) labels it.</div>}
+      {tab === "vendor" ? (
+        <VendorWindow
+          targets={targets}
+          cls={cls}
+          ctx={ctx}
+          onPick={(id) => {
+            if (id) {
+              setSel(id);
+              setTab("targets");
+            }
+          }}
+        />
+      ) : targets.length === 0 ? (
+        <div className="shop-empty">
+          <h3 style={{ margin: 0 }}>What are you hunting for?</h3>
+          <p className="muted" style={{ margin: "4px 0 14px" }}>
+            Pick a suggestion for your class to start — you can change everything afterwards — or{" "}
+            <a href="#" onClick={(e) => { e.preventDefault(); add(blankTarget(cls)); }}>
+              start from scratch
+            </a>
+            .
+          </p>
+          <Gallery cls={cls} onAdd={add} have={targets} />
         </div>
+      ) : (
+        <div className="shop-main">
+          <div className="shop-list">
+            {targets.map((t) => (
+              <TargetRow key={t.id} t={t} cls={cls} on={selected?.id === t.id} onClick={() => setSel(t.id)} onToggle={() => update({ ...t, on: !t.on })} />
+            ))}
+            {targets.length > 1 && <div className="small faint">When an item fits several targets, the most specific one (more requirements) labels it.</div>}
+          </div>
+          <section className="shop-editor">
+            {selected && (
+              <TargetEditor
+                key={selected.id}
+                t={selected}
+                cls={cls}
+                onChange={update}
+                onDuplicate={() => add({ ...selected, id: blankTarget(cls).id, name: `${selected.name} (copy)` })}
+                onDelete={() => {
+                  save(targets.filter((x) => x.id !== selected.id));
+                  setSel(null);
+                }}
+              />
+            )}
+          </section>
+        </div>
+      )}
 
-        <VendorWindow targets={targets} cls={cls} ctx={ctx} onPick={(id) => id && setSel(id)} />
-
-        <aside className="shop-editor">
-          {selected ? (
-            <TargetEditor
-              key={selected.id}
-              t={selected}
-              cls={cls}
-              onChange={update}
-              onDelete={() => {
-                save(targets.filter((x) => x.id !== selected.id));
-                setSel(null);
-              }}
-            />
-          ) : (
-            <div className="empty" style={{ padding: "40px 20px" }}>
-              <Icon name="spark" size={28} />
-              <p className="muted">Add a target to style it here.</p>
+      {adding && (
+        <>
+          <div className="scrim" onClick={() => setAdding(false)} />
+          <div className="dialog" style={{ width: "min(1100px, 96vw)" }}>
+            <div className="dialog-head">
+              <Icon name="spark" />
+              <h2>Add a target</h2>
+              <span className="small muted">Suggestions for {CLASS_NAMES[cls]}</span>
+              <button className="btn icon ghost" onClick={() => setAdding(false)}>
+                <Icon name="x" />
+              </button>
             </div>
-          )}
-        </aside>
-      </div>
+            <div className="dialog-body">
+              <Gallery cls={cls} onAdd={add} have={targets} />
+            </div>
+            <div className="dialog-foot">
+              <button className="btn" onClick={() => add(blankTarget(cls))}>
+                <Icon name="plus" size={15} /> Start from scratch
+              </button>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -299,25 +350,50 @@ function Tooltip({ r, s, look, compact }: { r: FilterResult; s: StockItem; look?
 
 // ---------------------------------------------------------------- editor
 
-function TargetEditor({ t, cls, onChange, onDelete }: { t: ShopTarget; cls: number; onChange: (t: ShopTarget) => void; onDelete: () => void }) {
+function TargetEditor({ t, cls, onChange, onDelete, onDuplicate }: { t: ShopTarget; cls: number; onChange: (t: ShopTarget) => void; onDelete: () => void; onDuplicate: () => void }) {
   const set = (patch: Partial<ShopTarget>) => onChange({ ...t, ...patch });
   const setLook = (patch: Partial<ShopLook>) => set({ look: { ...t.look, ...patch } });
   const p = isolatedPreview(t, cls);
   const [name, setName] = useState(t.name);
+  const advanced = useStore((s) => s.settings.mode === "advanced");
   return (
-    <div className="col" style={{ gap: 16 }}>
-      <div className="row">
-        <input className="input grow" value={name} onChange={(e) => setName(e.target.value)} onBlur={() => name.trim() && name !== t.name && set({ name: name.trim() })} />
+    <div className="shop-editor-inner">
+      <div className="shop-editor-head">
+        <input className="input shop-name" value={name} onChange={(e) => setName(e.target.value)} onBlur={() => name.trim() && name !== t.name && set({ name: name.trim() })} title="Name (only for you)" />
+        <label className="row small nowrap" title={t.on ? "Hunting — click to pause" : "Paused — click to hunt again"}>
+          <button className={`switch ${t.on ? "on" : ""}`} onClick={() => set({ on: !t.on })} />
+          {t.on ? "Hunting" : "Paused"}
+        </label>
+        <button className="btn sm ghost" title="Make a copy to tweak" onClick={onDuplicate}>
+          <Icon name="copy" size={14} /> Duplicate
+        </button>
         <button className="btn sm icon ghost danger" title="Delete this target" onClick={onDelete}>
           <Icon name="trash" size={15} />
         </button>
       </div>
-      <div className="shop-card-stage big">
-        <Tooltip r={p.r} s={p.stock} look={t.look} />
+
+      <div className="shop-editor-preview">
+        <div className="shop-card-stage big">
+          <Tooltip r={p.r} s={p.stock} look={t.look} />
+        </div>
+        <div className="small muted">
+          <b className="text">What you'll see</b>
+          <div>This is the tooltip when you hover a matching item in a vendor's window.</div>
+          <div style={{ marginTop: 6 }}>
+            Catches: <b className="text">{SHOP_ITEMS.find((x) => x.id === t.items)?.label}</b>
+            {t.qualities.length ? ` (${t.qualities.map((q) => SHOP_QUALITIES.find((x) => x.id === q)?.label.toLowerCase()).join(", ")})` : ""}
+            {t.needs.length ? ` with ${t.needs.map(needLabel).join(", ")}` : ""}.
+          </div>
+        </div>
       </div>
 
+      <div className="shop-editor-cols">
+      <div className="col" style={{ gap: 16 }}>
+      <div className="step-title">
+        <b>1</b> What to look for
+      </div>
       <div className="col" style={{ gap: 8 }}>
-        <div className="section-title">Look for</div>
+        <div className="section-title">Item type</div>
         <select className="select" value={t.items} onChange={(e) => set({ items: e.target.value })}>
           {SHOP_ITEMS.map((x) => (
             <option key={x.id} value={x.id}>
@@ -366,9 +442,14 @@ function TargetEditor({ t, cls, onChange, onDelete }: { t: ShopTarget; cls: numb
           <option value="sockets">Sockets</option>
         </select>
       </div>
+      </div>
 
+      <div className="col" style={{ gap: 16 }}>
+      <div className="step-title">
+        <b>2</b> How it looks
+      </div>
       <div className="col" style={{ gap: 8 }}>
-        <div className="section-title">Make it stand out</div>
+        <div className="section-title">Style</div>
         <div className="style-cards">
           {SHOP_STYLES.map((st) => {
             const pv = isolatedPreview({ ...t, look: { ...t.look, style: st.id } }, cls);
@@ -399,13 +480,16 @@ function TargetEditor({ t, cls, onChange, onDelete }: { t: ShopTarget; cls: numb
         <NoteField value={t.look.note} onCommit={(note) => setLook({ note })} />
         <ColorRow label="Price color" value={t.look.price} onPick={(c) => setLook({ price: c })} allowNone />
       </div>
+      </div>
+      </div>
 
-      <details className="small muted">
-        <summary style={{ cursor: "pointer" }}>What this writes in the filter</summary>
-        <div className="mono" style={{ marginTop: 6, wordBreak: "break-all" }}>
-          {writeShop([], [{ ...t, on: true }], { dimOthers: false }).find((l) => l.kind === "rule")?.raw.replace(/\s*\/\/@ffs.*$/, "")}
+      {advanced && (
+        <div className="col" style={{ gap: 6 }}>
+          <div className="section-title">Filter rule</div>
+          <div className="mono shop-rule">{writeShop([], [{ ...t, on: true }], { dimOthers: false }).find((l) => l.kind === "rule")?.raw.replace(/\s*\/\/@ffs.*$/, "")}</div>
+          <div className="small faint">Written to the “Shop hunting” block at the top of your filter; it's rewritten whenever you change this target.</div>
         </div>
-      </details>
+      )}
     </div>
   );
 }

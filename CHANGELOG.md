@@ -1,5 +1,39 @@
 # Changelog
 
+## 0.3.4 — 2026-09-30
+
+### How-to guide and website
+
+- **New How-to guide tab** (Simple tabs, the ? in the rail, and the start screen) covers Simple and Advanced mode with screenshots and animations. It's searchable.
+- **Website:** the same guide plus a download page, at https://roofooevazan.github.io/pd2-filter-forge/.
+
+### Shop hunting, re-laid out
+
+- **Page:** targets on the left and the editor across the rest of the page. The tooltip preview sits on top, then **1. What to look for** and **2. How it looks** side by side.
+- **Vendor preview** is its own tab, and suggestions open from **Add a target**.
+- **New in the editor:** a "Hunting / Paused" switch, **Duplicate**, and (Advanced mode) the exact filter rule it writes.
+
+### Real names on unidentified items
+
+- **What it does:** uniques and set items with only one possibility show their real name before identifying ("Harlequin Crest" instead of "Shako"). Items that could be several keep their name, and the tooltip lists what they could be.
+- **Options:** uniques, sets, the possibilities list, and keeping the base type. Live examples use your filter.
+- **Where:** Simple mode (Uniques / Set items) and Advanced mode (Levels, Aliases, Formulas & Features).
+
+### Themes
+
+- **Five new themes:** Graphite, Nord, Ember, Verdant and Snow, for eight in total.
+- **Make your own** from five colors with a live preview. Edit, delete, or share it as a code others can paste in.
+
+### Navigation
+
+- **Back and forward:** the mouse's back/forward buttons (and Alt+← / Alt+→) move between screens, like in a browser.
+
+### Fixes
+
+- **Problems → Remove:** removing a word from a list (like a dead item code) now also removes the OR/AND next to it. Leaving it would have made PD2 disable the rule.
+- **Fix preview:** the before/after highlights whole words.
+- **Managed blocks** (unidentified names, shop hunting, Simple choices) are placed above the section header of the first rule, instead of inside it.
+
 ## 0.3.3 — 2026-09-30
 
 ### Easier to find

@@ -1,4 +1,5 @@
 // Filter levels, aliases and formulas in one place.
+import { UnidPanel } from "./UnidPanel";
 import { useMemo, useState } from "react";
 import { actions, getState, useStore } from "../state/store";
 import { useAnalysis } from "../state/analysis";
@@ -24,10 +25,17 @@ export function DefinitionsView() {
 
   return (
     <div className="page">
-      <h2>Levels, Aliases & Formulas</h2>
+      <h2>Levels, Aliases, Formulas & Features</h2>
       <p className="lead">The building blocks your rules share. Changes here update every rule that uses them.</p>
 
       <div className="col" style={{ gap: 22, maxWidth: 1100 }}>
+        <section className="block">
+          <div className="block-head">
+            <Icon name="eye" />
+            <h3>Unidentified item names</h3>
+          </div>
+          <UnidPanel />
+        </section>
         <section className="block">
           <div className="block-head">
             <Icon name="layers" />

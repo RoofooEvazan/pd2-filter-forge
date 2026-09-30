@@ -371,6 +371,29 @@ function spacedJoin(cond: string, key: string, defs: Definitions): { from: strin
   return defs.aliases.has(to) || COND_BY_CODE.has(to) ? { from: m[1] + m[2] + m[3], to } : undefined;
 }
 
+/**
+ * After removing a word from conditions, drop the AND/OR it leaves dangling ("( OR t61" → "(t61"):
+ * an operator with nothing on one side would make PD2 disable the whole rule.
+ */
+export function tidyOperators(cond: string): string {
+  const OP = "(?:OR|AND|&&|\\|\\|)";
+  let s = cond.replace(/\s+/g, " ").trim();
+  let prev = "";
+  while (prev !== s) {
+    prev = s;
+    s = s
+      .replace(new RegExp(`(^|\\s)${OP}\\s+(${OP})(?=\\s|$)`, "g"), "$1$2")
+      .replace(new RegExp(`\\(\\s*${OP}\\s+`, "g"), "(")
+      .replace(new RegExp(`\\s+${OP}\\s*\\)`, "g"), ")")
+      .replace(new RegExp(`^${OP}\\s+`), "")
+      .replace(new RegExp(`\\s+${OP}$`), "")
+      .replace(/\(\s*\)/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+  return s;
+}
+
 // ------------------------------------------------------------------ item kinds
 
 /** A code's kind: maps by tier (so the two PvP arena types count as one), everything else by item type. */
@@ -431,7 +454,7 @@ function oddCodeIssues(l: Line, i: number, tree: BhNode | null): Issue[] {
       const k = kindOf(c);
       if (k === kind || !codes.some((o) => kindOf(o) === kind && o.slice(0, 2) === c.slice(0, 2))) continue;
       const others = codes.filter((o) => kindOf(o) === kind).slice(0, 3).map((o) => `${o} ${ITEM_BY_CODE.get(o)!.n}`);
-      out.push(issue("cond.odd-code", l, i, `${c} is ${ITEM_BY_CODE.get(c)!.n} (${kindLabel(k!).replace(/s$/, "")}), but the other codes here are ${kindLabel(kind)}.`, replaceInRaw(l, c, "", `Remove ${c}`).map((f) => ({ ...f, key: f.key?.replace(/\bOR\s+OR\b/g, "OR").replace(/\(\s*OR\s+/g, "(").replace(/\s+OR\s*\)/g, ")").replace(/^\s*OR\s+|\s+OR\s*$/g, "").replace(/\s+/g, " ").trim() })), c, {
+      out.push(issue("cond.odd-code", l, i, `${c} is ${ITEM_BY_CODE.get(c)!.n} (${kindLabel(k!).replace(/s$/, "")}), but the other codes here are ${kindLabel(kind)}.`, replaceInRaw(l, c, "", `Remove ${c}`).map((f) => ({ ...f, key: f.key != null ? tidyOperators(f.key) : f.key })), c, {
         detail: `The codes next to it are ${list(others)}. This rule's look (and any note in it) also applies to ${ITEM_BY_CODE.get(c)!.n}, which is probably not intended.`,
         advice: `If it's there by mistake, remove ${c}.`,
       }));
@@ -452,7 +475,7 @@ function eventIssues(l: Line, i: number, ev: BhEvent, cond: string, ctx: LintCtx
     const k = tokenInRaw ? replaceToken(cond, ev.token, next) : undefined;
     return k != null ? [{ label, key: k }] : [];
   };
-  const drop = (): Fix[] => fixTok("", `Remove “${short(ev.token, 24)}”`).map((f) => ({ ...f, key: f.key?.replace(/\s+/g, " ").trim() }));
+  const drop = (): Fix[] => fixTok("", `Remove “${short(ev.token, 24)}”`).map((f) => ({ ...f, key: f.key != null ? tidyOperators(f.key) : f.key }));
   const never = all.some((e) => e.kind === "never-matches");
   const tk = short(ev.token);
   switch (ev.kind) {

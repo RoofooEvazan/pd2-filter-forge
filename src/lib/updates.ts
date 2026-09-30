@@ -4,6 +4,8 @@ import { useSyncExternalStore } from "react";
 
 export const REPO = "RoofooEvazan/pd2-filter-forge";
 export const RELEASES_URL = `https://github.com/${REPO}/releases`;
+/** The download page and how-to guide (GitHub Pages). */
+export const SITE_URL = "https://roofooevazan.github.io/pd2-filter-forge/";
 export const APP_VERSION: string = __APP_VERSION__;
 
 export interface Release {

@@ -17,9 +17,11 @@ import { SimpleView } from "./components/SimpleView";
 import { PreviewView } from "./components/PreviewView";
 import { UpdateBanner } from "./components/Updates";
 import { ShopView } from "./components/ShopView";
+import { GuideView } from "./components/GuideView";
 import { DiscordDialog } from "./components/DiscordDialog";
 import { checkOnLaunch } from "./lib/updates";
 import { readMysteries } from "./lib/simple";
+import { findTheme, themeVars } from "./lib/themes";
 
 const SIMPLE_NAV: { view: View; icon: string; label: string; hk: string }[] = [
   { view: "simple", icon: "wand", label: "Items", hk: "1" },
@@ -44,14 +46,16 @@ export function App() {
   const discord = useStore((s) => s.discord);
   const mode = settings.mode;
   const toast = useStore((s) => s.toast);
+  const themePreview = useStore((s) => s.themePreview);
 
   useEffect(() => {
     const r = document.documentElement;
-    r.dataset.theme = settings.theme;
+    const theme = themePreview ?? findTheme(settings.theme, settings.customThemes ?? []);
+    r.dataset.theme = theme.dark ? "dark" : "light";
     r.dataset.density = settings.density;
-    r.style.setProperty("--accent", settings.accent);
+    for (const [k, v] of Object.entries(themeVars(theme, themePreview ? undefined : settings.accent))) r.style.setProperty(k, v);
     r.style.setProperty("--scale", String(settings.fontScale));
-  }, [settings]);
+  }, [settings, themePreview]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -85,10 +89,32 @@ export function App() {
       if (isDirty(getState())) e.preventDefault();
     };
     checkOnLaunch();
+    // Mouse back/forward buttons (and Alt+Left/Right, keyboard Back/Forward keys) move between screens.
+    const onMouseNav = (e: MouseEvent) => {
+      if (e.button !== 3 && e.button !== 4) return;
+      e.preventDefault();
+      if (e.type === "mouseup") (e.button === 3 ? actions.navBack : actions.navForward)();
+    };
+    const onNavKey = (e: KeyboardEvent) => {
+      const inField = /^(INPUT|TEXTAREA|SELECT)$/.test((e.target as HTMLElement)?.tagName ?? "");
+      if (e.key === "BrowserBack" || (e.altKey && e.key === "ArrowLeft" && !inField)) {
+        e.preventDefault();
+        actions.navBack();
+      } else if (e.key === "BrowserForward" || (e.altKey && e.key === "ArrowRight" && !inField)) {
+        e.preventDefault();
+        actions.navForward();
+      }
+    };
+    window.addEventListener("mousedown", onMouseNav);
+    window.addEventListener("mouseup", onMouseNav);
+    window.addEventListener("keydown", onNavKey);
     window.addEventListener("keydown", onKey);
     window.addEventListener("beforeunload", beforeUnload);
     return () => {
       window.removeEventListener("keydown", onKey);
+      window.removeEventListener("mousedown", onMouseNav);
+      window.removeEventListener("mouseup", onMouseNav);
+      window.removeEventListener("keydown", onNavKey);
       window.removeEventListener("beforeunload", beforeUnload);
     };
   }, []);
@@ -99,8 +125,8 @@ export function App() {
       <Rail />
       <main className="main">
         <UpdateBanner />
-        {hasDoc && mode === "simple" && (view === "simple" || view === "preview" || view === "shop") && <SimpleTabs />}
-        {!hasDoc && view !== "settings" && view !== "codex" ? (
+        {hasDoc && mode === "simple" && (view === "simple" || view === "preview" || view === "shop" || view === "guide") && <SimpleTabs />}
+        {!hasDoc && view !== "settings" && view !== "codex" && view !== "guide" ? (
           <Home />
         ) : view === "simple" ? (
           <SimpleView />
@@ -108,6 +134,8 @@ export function App() {
           <PreviewView />
         ) : view === "shop" ? (
           <ShopView />
+        ) : view === "guide" ? (
+          <GuideView />
         ) : view === "rules" ? (
           <RulesView />
         ) : view === "lab" ? (
@@ -229,6 +257,9 @@ function Rail() {
           <Icon name="home" />
         </button>
       )}
+      <button className={`tip ${view === "guide" ? "on" : ""}`} data-tip="How-to guide" onClick={() => actions.setView("guide")}>
+        <Icon name="help" />
+      </button>
       <button className={`tip ${view === "settings" ? "on" : ""}`} data-tip="Settings & updates" onClick={() => actions.setView("settings")}>
         <Icon name="settings" />
       </button>
@@ -278,6 +309,7 @@ function SimpleTabs() {
     },
     { id: "preview", label: "Loot preview", icon: "eye", on: view === "preview", go: () => actions.setView("preview") },
     { id: "shop", label: "Shop hunting", icon: "spark", on: view === "shop", isNew: !seen.includes("shop"), go: () => actions.setView("shop") },
+    { id: "guide", label: "How-to guide", icon: "help", on: view === "guide", isNew: !seen.includes("guide"), go: () => actions.setView("guide") },
   ];
   return (
     <div className="simple-tabs">

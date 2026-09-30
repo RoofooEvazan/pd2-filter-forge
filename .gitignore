@@ -9,3 +9,4 @@ release
 *.bak
 src-tauri/icons/android
 src-tauri/icons/ios
+site
