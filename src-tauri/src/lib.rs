@@ -95,12 +95,53 @@ fn write_file(path: String, data: Vec<u8>, backup: bool) -> Result<Option<String
   Ok(made)
 }
 
+/// Only installers attached to this app's own GitHub releases may be downloaded and run.
+const RELEASE_PREFIX: &str = "https://github.com/RoofooEvazan/pd2-filter-forge/releases/download/";
+
+fn is_release_installer(url: &str) -> bool {
+  url.starts_with(RELEASE_PREFIX) && url.ends_with("-setup.exe") && !url[RELEASE_PREFIX.len()..].contains("..")
+}
+
+/// Download a release installer into the temp folder and check it arrived whole.
+fn download_installer(url: &str) -> Result<PathBuf, String> {
+  if !is_release_installer(url) {
+    return Err("That isn't a Filter Forge release installer.".into());
+  }
+  let name = url.rsplit('/').next().unwrap_or("PD2-Filter-Forge-setup.exe");
+  let path = std::env::temp_dir().join(name);
+  let resp = ureq::get(url).call().map_err(|e| format!("Download failed: {e}"))?;
+  let expected: Option<u64> = resp.header("Content-Length").and_then(|v| v.parse().ok());
+  let mut reader = resp.into_reader();
+  let mut file = fs::File::create(&path).map_err(|e| e.to_string())?;
+  let written = std::io::copy(&mut reader, &mut file).map_err(|e| format!("Download failed: {e}"))?;
+  drop(file);
+  if written < 100_000 || expected.is_some_and(|n| n != written) {
+    let _ = fs::remove_file(&path);
+    return Err("The download was incomplete. Try again.".into());
+  }
+  Ok(path)
+}
+
+/// Download a release installer to the temp folder, start it in passive mode (progress bar, no
+/// questions, relaunches the app when done) and quit so it can replace the running files.
+/// Async so the download runs off the UI thread.
+#[tauri::command]
+async fn install_update(app: tauri::AppHandle, url: String) -> Result<(), String> {
+  let path = download_installer(&url)?;
+  std::process::Command::new(&path)
+    .args(["/P", "/R"])
+    .spawn()
+    .map_err(|e| format!("Couldn't start the installer: {e}"))?;
+  app.exit(0);
+  Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   tauri::Builder::default()
     .plugin(tauri_plugin_dialog::init())
     .plugin(tauri_plugin_opener::init())
-    .invoke_handler(tauri::generate_handler![detect_pd2_dir, list_dir, read_file, write_file])
+    .invoke_handler(tauri::generate_handler![detect_pd2_dir, list_dir, read_file, write_file, install_update])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
 }
@@ -108,6 +149,27 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
   use super::*;
+
+  /// Needs the internet: `cargo test -- --ignored downloads_a_published_installer`.
+  #[test]
+  #[ignore]
+  fn downloads_a_published_installer() {
+    let p = download_installer("https://github.com/RoofooEvazan/pd2-filter-forge/releases/download/v0.3.1/PD2-Filter-Forge_0.3.1_x64-setup.exe").unwrap();
+    let len = fs::metadata(&p).unwrap().len();
+    println!("downloaded {} bytes to {}", len, p.display());
+    assert!(len > 1_000_000);
+    let head = fs::read(&p).unwrap();
+    assert_eq!(&head[..2], b"MZ");
+    fs::remove_file(p).unwrap();
+  }
+
+  #[test]
+  fn only_our_release_installers_can_be_installed() {
+    assert!(is_release_installer("https://github.com/RoofooEvazan/pd2-filter-forge/releases/download/v0.3.2/PD2-Filter-Forge_0.3.2_x64-setup.exe"));
+    assert!(!is_release_installer("https://github.com/RoofooEvazan/pd2-filter-forge/releases/download/v0.3.2/PD2-Filter-Forge_0.3.2_portable.exe"));
+    assert!(!is_release_installer("https://example.com/releases/download/x-setup.exe"));
+    assert!(!is_release_installer("https://github.com/RoofooEvazan/pd2-filter-forge/releases/download/../../evil/x-setup.exe"));
+  }
 
   #[test]
   fn write_backs_up_and_reads_back() {

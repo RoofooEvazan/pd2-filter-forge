@@ -1,6 +1,6 @@
 [package]
 name = "pd2-filter-forge"
-version = "0.3.1"
+version = "0.3.2"
 description = "Loot filter editor for Project Diablo 2"
 authors = []
 edition = "2024"
@@ -19,6 +19,7 @@ serde_json = "1.0"
 tauri = { version = "2.12.0", features = [] }
 tauri-plugin-dialog = "2"
 tauri-plugin-opener = "2.6.0"
+ureq = "2"
 
 [target.'cfg(windows)'.dependencies]
 winreg = "0.55"

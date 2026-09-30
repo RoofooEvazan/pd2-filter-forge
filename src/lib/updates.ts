@@ -22,6 +22,9 @@ export interface UpdateState {
   latest?: Release;
   error?: string;
   checkedAt?: number;
+  /** Download-and-install progress for the available release. */
+  install?: "downloading" | "failed";
+  installError?: string;
 }
 
 /** Compare dotted versions ("v0.10.1" > "0.9.3"); pre-release suffixes sort before the release. */
@@ -91,6 +94,28 @@ export async function checkForUpdates(): Promise<UpdateState> {
     set({ status: "error", error: e instanceof Error ? e.message : String(e), checkedAt: Date.now() });
   }
   return state;
+}
+
+/**
+ * Download the new installer and run it. The installer shows a progress bar, closes this app,
+ * updates it in place and starts it again. In a browser it just opens the download.
+ */
+export async function installUpdate(): Promise<void> {
+  const r = state.latest;
+  if (!r) return;
+  const { isDesktop, openExternal } = await import("./platform");
+  if (!isDesktop || !r.installer) {
+    await openExternal(r.installer ?? r.url);
+    return;
+  }
+  set({ ...state, install: "downloading", installError: undefined });
+  try {
+    const { invoke } = await import("@tauri-apps/api/core");
+    await invoke("install_update", { url: r.installer });
+    // The app quits once the installer has started.
+  } catch (e) {
+    set({ ...state, install: "failed", installError: e instanceof Error ? e.message : String(e) });
+  }
 }
 
 /** Launch-time check, at most every 6 hours. */

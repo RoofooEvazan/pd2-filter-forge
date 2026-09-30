@@ -1,6 +1,6 @@
-// "A new version is available" banner, and the Updates section of Settings.
+// "A new version is available" banner, the Updates section of Settings, and the start-screen line.
 import { useState } from "react";
-import { APP_VERSION, RELEASES_URL, checkForUpdates, dismiss, isDismissed, useUpdate } from "../lib/updates";
+import { APP_VERSION, RELEASES_URL, checkForUpdates, dismiss, installUpdate, isDismissed, useUpdate } from "../lib/updates";
 import { openExternal } from "../lib/platform";
 import { actions } from "../state/store";
 import { Markdown } from "./Markdown";
@@ -15,13 +15,12 @@ export function UpdateBanner() {
       <Icon name="download" size={16} />
       <div className="grow">
         <b>Filter Forge {v} is available</b> <span className="muted">— you have {APP_VERSION}.</span>
+        <InstallError />
       </div>
       <button className="btn sm" onClick={() => actions.setView("settings")}>
         What's new
       </button>
-      <button className="btn sm primary" onClick={() => openExternal(u.latest!.installer ?? u.latest!.url)}>
-        Download
-      </button>
+      <InstallButton />
       <button className="btn sm ghost icon" title="Hide until the next version" onClick={() => dismiss(v)}>
         <Icon name="x" size={14} />
       </button>
@@ -56,6 +55,7 @@ export function UpdatesSettings() {
             All releases <Icon name="link" size={13} />
           </button>
         </div>
+        <InstallError />
         {u.latest && (
           <div className="card" style={{ padding: "10px 14px" }}>
             <div className="row">
@@ -63,18 +63,7 @@ export function UpdatesSettings() {
                 {u.latest.name}
                 {u.latest.published && <span className="small muted"> · {new Date(u.latest.published).toLocaleDateString()}</span>}
               </b>
-              {u.status === "available" && (
-                <>
-                  {u.latest.portable && (
-                    <button className="btn sm" onClick={() => openExternal(u.latest!.portable!)}>
-                      Portable .exe
-                    </button>
-                  )}
-                  <button className="btn sm primary" onClick={() => openExternal(u.latest!.installer ?? u.latest!.url)}>
-                    <Icon name="download" size={13} /> Download installer
-                  </button>
-                </>
-              )}
+              <InstallButton />
               <button className="btn sm ghost" onClick={() => setShowNotes(!showNotes)}>
                 {showNotes ? "Hide" : "Show"} release notes
               </button>
@@ -87,21 +76,59 @@ export function UpdatesSettings() {
   );
 }
 
-/** "Version 0.3.0 · Check for updates" for the start screen. */
+/** "Version 0.3.1 · Check for updates" for the start screen. */
 export function VersionLine() {
   const u = useUpdate();
   return (
-    <div className="row small wrap" style={{ gap: 8, marginTop: 6 }}>
-      <span className="muted">Version {APP_VERSION}</span>
-      {u.status === "available" ? (
-        <button className="btn sm primary" onClick={() => openExternal(u.latest!.installer ?? u.latest!.url)}>
-          <Icon name="download" size={13} /> Download {u.latest!.version}
-        </button>
-      ) : (
-        <button className="btn sm ghost" disabled={u.status === "checking"} onClick={() => checkForUpdates()}>
-          {u.status === "checking" ? "Checking…" : u.status === "current" ? "Up to date · check again" : u.status === "error" ? "Couldn't check · try again" : "Check for updates"}
-        </button>
-      )}
+    <div className="col" style={{ gap: 4, marginTop: 6 }}>
+      <div className="row small wrap" style={{ gap: 8 }}>
+        <span className="muted">Version {APP_VERSION}</span>
+        {u.status === "available" ? (
+          <InstallButton />
+        ) : (
+          <button className="btn sm ghost" disabled={u.status === "checking"} onClick={() => checkForUpdates()}>
+            {u.status === "checking" ? "Checking…" : u.status === "current" ? "Up to date · check again" : u.status === "error" ? "Couldn't check · try again" : "Check for updates"}
+          </button>
+        )}
+      </div>
+      <InstallError />
+    </div>
+  );
+}
+
+/** Downloads the new installer and runs it; the app closes, updates and reopens by itself. */
+function InstallButton() {
+  const u = useUpdate();
+  if (u.status !== "available" || !u.latest) return null;
+  const busy = u.install === "downloading";
+  return (
+    <button
+      className="btn sm primary"
+      disabled={busy}
+      onClick={() => installUpdate()}
+      title="Downloads the installer, closes Filter Forge, updates it and opens it again. Save your work first."
+    >
+      <Icon name="download" size={13} /> {busy ? "Downloading…" : u.install === "failed" ? "Try again" : `Update to ${u.latest.version}`}
+    </button>
+  );
+}
+
+function InstallError() {
+  const u = useUpdate();
+  if (u.install !== "failed") return null;
+  return (
+    <div className="small warn-text">
+      {u.installError} You can also{" "}
+      <a
+        href="#"
+        onClick={(e) => {
+          e.preventDefault();
+          openExternal(u.latest?.url ?? RELEASES_URL);
+        }}
+      >
+        download it from the release page
+      </a>
+      .
     </div>
   );
 }

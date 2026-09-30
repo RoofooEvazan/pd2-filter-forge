@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.2 — 2026-09-30
+
+- **Updates install themselves.** "Update to x.y.z" (banner, Settings → Version and the start screen) downloads the new installer from GitHub, closes Filter Forge, updates it in place and reopens it. Only installers from this app's own GitHub releases are accepted.
+- **Fixed: links and download buttons did nothing.** The app wasn't allowed to open web links, so the update buttons, "All releases", "Open #filter-help" / "Open #share-your-filter" and the reference links were all blocked without an error. They open in your browser now, and if a link can't be opened you get a message and the link is copied for you.
+
 ## 0.3.1 — 2026-09-30
 
 - **Post to the Roofoo Discord:** a Discord button (top bar, Problems tab and Ctrl+K) fills in the pinned prompt for **#filter-help** or **#share-your-filter** with everything Filter Forge already knows: your filter, base filter, filter level, app version, what you changed (item styles, mystery drops, shop targets) and a problem summary. Copy the post, save the files to attach (your .filter, plus the problems report for help posts), and open the channel in one click. It posts from your own Discord account; nothing is sent automatically.

@@ -109,6 +109,13 @@ export async function openExternal(url: string) {
     window.open(url, "_blank", "noopener");
     return;
   }
-  const { openUrl } = await import("@tauri-apps/plugin-opener");
-  await openUrl(url);
+  try {
+    const { openUrl } = await import("@tauri-apps/plugin-opener");
+    await openUrl(url);
+  } catch (e) {
+    // Never fail silently: hand the link over so it can be pasted into a browser.
+    await navigator.clipboard.writeText(url).catch(() => {});
+    const { actions } = await import("../state/store");
+    actions.toast(`Couldn't open the link (${e instanceof Error ? e.message : String(e)}). It's been copied — paste it into your browser.`, "err");
+  }
 }
