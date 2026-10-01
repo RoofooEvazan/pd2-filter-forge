@@ -6,7 +6,7 @@ import engineReference from "../../docs/PD2-Filter-Engine-Reference.md?raw";
 import { actions, getState, useStore } from "../state/store";
 import { useAnalysis, type Analysis } from "../state/analysis";
 import { editLine, type Line } from "../lib/document";
-import { CHECKS, CHECK_BY_ID, IMPACTS, type CheckDef, type Fix, type Impact, type Issue } from "../lib/lint";
+import { CHECKS, CHECK_BY_ID, IMPACTS, tryItemCode, type CheckDef, type Fix, type Impact, type Issue } from "../lib/lint";
 import { runDeepChecks } from "../lib/deep";
 import { problemsReport } from "../lib/report";
 import { browserDownload, isDesktop, pickSavePath, writeFileBytes } from "../lib/platform";
@@ -294,6 +294,11 @@ function IssueRow({ i, l, def, lines, section, expanded, onToggle }: { i: Issue;
                 {i.fixes.length - 1} more option{i.fixes.length > 2 ? "s" : ""}
               </button>
             )}
+            {i.swap && !expanded && (
+              <button className="btn sm ghost" onClick={onToggle} title="Type the item code you meant; it's checked before it's applied">
+                Other code…
+              </button>
+            )}
             <button className="btn sm ghost" onClick={() => actions.goTo(l.id)} title="Open this line in the editor">
               Open
             </button>
@@ -321,6 +326,7 @@ function IssueRow({ i, l, def, lines, section, expanded, onToggle }: { i: Issue;
             {i.fixes.map((f, j) => (
               <FixPreview key={j} f={f} l={l} lines={lines} />
             ))}
+            {i.swap && <OwnCode i={i} l={l} lines={lines} />}
             {!i.fixes.length && (
               <button className="btn sm" onClick={() => actions.goTo(l.id)}>
                 Open line {i.line + 1} in the editor <Icon name="right" size={13} />
@@ -360,6 +366,50 @@ function FixPreview({ f, l, lines }: { f: Fix; l: Line; lines: Line[] }) {
         </button>
       </div>
       {body}
+    </div>
+  );
+}
+
+/** "Use a different code": the user's own item code, checked live so it can't introduce a new problem. */
+function OwnCode({ i, l, lines }: { i: Issue; l: Line; lines: Line[] }) {
+  const [text, setText] = useState("");
+  const t = useMemo(() => (text.trim() ? tryItemCode(lines, i, text) : null), [text, lines, i]);
+  const ok = !!t?.fix && t.problems.length === 0;
+  return (
+    <div className="fixprev owncode">
+      <div className="row" style={{ gap: 8 }}>
+        <span className="badge">your own</span>
+        <b className="grow">Use a different item code</b>
+      </div>
+      <div className="row" style={{ gap: 8, marginTop: 6 }}>
+        <input
+          className="input grow"
+          placeholder={`Instead of “${i.swap!.code}” — a code (e.g. 7cr) or an item name`}
+          value={text}
+          spellCheck={false}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && ok && doFix(l, t!.fix!)}
+        />
+        <button className="btn sm primary" disabled={!ok} onClick={() => t?.fix && doFix(l, t.fix)} title={ok ? "Checked: no new problems" : "Type a code that passes the check first"}>
+          Apply
+        </button>
+      </div>
+      {t && (
+        <div className="small" style={{ marginTop: 6 }}>
+          {t.item && (
+            <div className={ok ? "ok-text" : ""}>
+              <Icon name={ok ? "check" : "info"} size={13} /> <code>{t.code}</code> is {t.item}
+              {ok ? " — no new problems." : "."}
+            </div>
+          )}
+          {t.problems.map((p, k) => (
+            <div key={k} className="warn-text">
+              <Icon name="problems" size={13} /> {p}
+            </div>
+          ))}
+        </div>
+      )}
+      {t?.fix && <Diff before={l.raw.trim()} after={editLine(l, { key: t.fix.key }).raw.trim()} />}
     </div>
   );
 }

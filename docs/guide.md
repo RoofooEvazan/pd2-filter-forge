@@ -130,6 +130,7 @@ PD2 never reports filter mistakes; it quietly drops or reinterprets what it does
 
 - Each row shows the **problem** on the left and the **suggestion** on the right. Click it for details: what PD2 does with that exact text, a before/after of each fix, and a link to the engine reference.
 - Fixes are marked **certain** (same meaning, written so PD2 reads it) or **suggestion** (a guess at what you meant). **Fix all** only applies certain fixes.
+- **No item has this code:** besides the suggestions, click **Other code…** and type the code (or item name) you meant. It's checked as you type, and **Apply** only unlocks when the code is real and doesn't cause a new problem, such as a duplicate of another rule or a code that doesn't fit the others in the list.
 - **Copy for AI** makes a text report of every problem and fix, ready to paste into an AI assistant.
 - **Ask on Discord** posts in the Roofoo Discord's #filter-help with your filter and the report attached.
 

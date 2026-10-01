@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.6 — 2026-09-30
+
+### Problems
+
+- **Use your own item code** for “No item has this code”: the suggestions stay, and **Other code…** lets you type the code (or item name) you meant. It's checked as you type, and Apply only unlocks when the code is real and causes no new problem (already in the rule, a copy of another rule, or a code that doesn't fit the others).
+
 ## 0.3.5 — 2026-09-30
 
 Found by rebuilding every public launcher filter (115 filters from 19 authors) with Filter Forge.

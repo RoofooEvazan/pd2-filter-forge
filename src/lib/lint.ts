@@ -1,7 +1,7 @@
 // Problems PD2 won't tell you about. Every check is grounded in the engine research documented in
 // docs/PD2-Filter-Engine-Reference.md; `ref` points at the section that explains it.
 import type { FilterDoc, Line, Definitions } from "./document";
-import { collectDefinitions, expandAliases } from "./document";
+import { collectDefinitions, editLine, expandAliases } from "./document";
 import { tokenize, buildTree, serializeTree, compileCondition } from "./conditions";
 import { segmentOutput, descSpan, buildAction, classifyKeyword, ICON_KINDS } from "./output";
 import { tryCompile, type FNode } from "./formula";
@@ -63,6 +63,8 @@ export interface Issue {
   advice?: string;
   token?: string;
   fixes: Fix[];
+  /** An unknown item code the user can replace with one of their own (see tryItemCode). */
+  swap?: { token: string; code: string };
   /** Back-compat for callers that only understand one condition fix. */
   fixCond?: string;
   fixLabel?: string;
@@ -564,12 +566,12 @@ function eventIssues(l: Line, i: number, ev: BhEvent, cond: string, ctx: LintCtx
       }
       if (!advice && (sugg.length || kw)) advice = `Did you mean ${[...(kw && kw.kind !== "logic" ? [`${code.toUpperCase()} (${kw.label})`] : []), ...sugg.map((s) => `${s.text} (${s.why})`)].join(", ")}?`;
       const fixes = [...(kw && kw.kind !== "logic" ? fixTok(ev.token.replace(code, code.toUpperCase()), `Use ${code.toUpperCase()} (${kw.label})`) : []), ...sugg.flatMap((s) => fixTok(ev.token.replace(code, s.text), `Use ${s.text} — ${s.why}`)), ...drop()];
-      return [
-        issue("cond.item-unknown", l, i, `No item has the code “${code}”, so this part never matches${from}.`, fixes, ev.token, {
-          detail: "PD2 compares item codes exactly. Inside an OR a wrong code is dead text; inside an AND it disables the rule.",
-          advice,
-        }),
-      ];
+      const found = issue("cond.item-unknown", l, i, `No item has the code “${code}”, so this part never matches${from}.`, fixes, ev.token, {
+        detail: "PD2 compares item codes exactly. Inside an OR a wrong code is dead text; inside an AND it disables the rule.",
+        advice,
+      });
+      if (tokenInRaw && ev.token.includes(code)) found.swap = { token: ev.token, code };
+      return [found];
     }
     case "item-truncated":
       return [issue("cond.item-long", l, i, `“${tk}” is compared as “${ev.detail}”${from}.`, fixTok(ev.detail!, `Shorten to ${ev.detail}`), ev.token, { detail: "Only the first 4 characters of an item code are compared; the rest is ignored." })];
@@ -1208,4 +1210,66 @@ function classifyKeywordSafe(inner: string) {
 function moveAdvice(fixes: Fix[], why: string): string {
   const ok = fixes.find((f) => f.safe);
   return ok ? `${why} The fix below does that without affecting any other alias.` : `${why} Each possible move would also break another alias, so pick one and fix that too (expand for the options).`;
+}
+
+// ------------------------------------------------------------------ the user's own code
+
+export interface CodeTry {
+  /** The code as PD2 will read it (lowercased). */
+  code: string;
+  /** The item it names. */
+  item?: string;
+  fix?: Fix;
+  /** Why it can't be used, or the new problems it would cause. Empty = safe to apply. */
+  problems: string[];
+}
+
+/**
+ * Check a code the user typed to replace an unknown item code: that an item has it, and that using it
+ * doesn't cause a new problem on this rule (or make it a duplicate of another). Accepts an item name too.
+ */
+export function tryItemCode(lines: Line[], found: Issue, typed: string): CodeTry {
+  const raw = typed.trim();
+  const byName = DATA.items.find((it) => it.n.toLowerCase() === raw.toLowerCase());
+  const code = byName ? byName.c : raw.toLowerCase();
+  const sw = found.swap;
+  const l = lines.find((x) => x.id === found.id);
+  if (!sw || !l || !code) return { code, problems: [] };
+  const it = ITEM_BY_CODE.get(code);
+  if (!it) {
+    const near = suggestItemCode(code).slice(0, 3).map((x) => `${x.text} (${x.why})`);
+    return { code, problems: [`No item has the code “${code}” either.${near.length ? ` Did you mean ${list(near)}?` : ""}`] };
+  }
+  const cond = l.key ?? "";
+  const key = replaceToken(cond, sw.token, sw.token.replace(sw.code, code));
+  if (key == null) return { code, item: it.n, problems: ["This part of the rule has changed since the check ran."] };
+  const fix: Fix = { label: `Use ${code} — ${it.n}`, key };
+  const problems: string[] = [];
+  const codes = [...cond.matchAll(/(?:^|[\s(!])([a-z0-9]{3,4})(?=$|[\s)!])/g)].map((m) => m[1]);
+  if (codes.includes(code)) problems.push(`${code} (${it.n}) is already in this rule.`);
+
+  // Lint just this rule, with the file's aliases, formulas and levels, before and after the change.
+  const defsLines = lines.filter((x) => x.kind === "alias" || x.kind === "formula" || x.kind === "level");
+  const lintOne = (k: string) => lintDoc({ lines: [...defsLines, editLine(l, { key: k })], eol: "\n" }).filter((x) => x.id === l.id);
+  const before = new Map<string, number>();
+  for (const x of lintOne(cond)) before.set(`${x.check}|${x.msg}`, (before.get(`${x.check}|${x.msg}`) ?? 0) + 1);
+  for (const x of lintOne(key)) {
+    const k = `${x.check}|${x.msg}`;
+    if (before.get(k)) before.set(k, before.get(k)! - 1);
+    else problems.push(x.msg);
+  }
+
+  // A rule that stops (no %CONTINUE%) with the same conditions as another: one of them is never used.
+  if (!l.disabled) {
+    const norm = (c: string) => c.trim().replace(/\s+/g, " ");
+    const stops = (x: Line) => !/%CONTINUE%/i.test(x.value ?? "");
+    const target = norm(key);
+    const at = lines.indexOf(l);
+    lines.forEach((x, j) => {
+      if (j === at || x.kind !== "rule" || x.disabled || norm(x.key ?? "") !== target) return;
+      if (j < at && stops(x)) problems.push(`Line ${j + 1} already has exactly these conditions and stops first, so this rule would never be used.`);
+      else if (j > at && stops(l)) problems.push(`Line ${j + 1} has exactly these conditions, so it would never be used after this rule.`);
+    });
+  }
+  return { code, item: it.n, fix, problems };
 }

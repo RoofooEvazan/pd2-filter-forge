@@ -971,6 +971,15 @@
 .warn-text {
   color: var(--warn);
 }
+.ok-text {
+  color: var(--ok);
+}
+.owncode .small svg {
+  vertical-align: -2px;
+}
+.owncode .small > div + div {
+  margin-top: 3px;
+}
 
 .export-text {
   width: 100%;
