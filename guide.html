@@ -1,0 +1,209 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>How-to guide — PD2 Filter Forge</title><meta name="description" content="Build Project Diablo 2 loot filters visually, test them against any item, and install them into the game.">
+<link rel="icon" href="icon.svg"><style>
+:root{--bg:#0f0d10;--bg2:#151216;--panel:#1a171c;--line:#2e2830;--text:#ebe4d6;--muted:#a1978c;--faint:#6c645c;--accent:#d9a441;color-scheme:dark}
+*{box-sizing:border-box}html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.6 "Segoe UI",system-ui,sans-serif}
+a{color:var(--accent)}code{font-family:"Cascadia Mono",Consolas,monospace;background:var(--bg2);border:1px solid var(--line);border-radius:4px;padding:0 4px;font-size:.9em}
+header.top{display:flex;align-items:center;gap:12px;padding:14px 24px;border-bottom:1px solid var(--line);background:var(--bg2);position:sticky;top:0;z-index:5}
+header.top img{width:30px;height:30px}header.top b{font-size:17px}header.top nav{margin-left:auto;display:flex;gap:18px}
+header.top nav a{color:var(--muted);text-decoration:none;font-weight:600}header.top nav a:hover,header.top nav a.on{color:var(--text)}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:11px 18px;border-radius:9px;border:1px solid var(--line);background:var(--panel);color:var(--text);text-decoration:none;font-weight:600}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#1a1206}.btn:hover{filter:brightness(1.08)}
+.hero{max-width:1100px;margin:0 auto;padding:56px 24px 28px;display:grid;grid-template-columns:1.1fr 1fr;gap:36px;align-items:center}
+.hero h1{font-size:40px;line-height:1.15;margin:0 0 12px}.hero p{color:var(--muted);font-size:17px;margin:0 0 22px}
+.hero img.shot{width:100%;border-radius:12px;border:1px solid var(--line);box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.dl{display:flex;flex-wrap:wrap;gap:10px;align-items:center}.ver{color:var(--faint);font-size:13px;margin-top:10px}
+.features{max-width:1100px;margin:0 auto;padding:10px 24px 60px;display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px}.card h3{margin:0 0 6px}.card p{color:var(--muted);margin:0 0 12px}
+.card img{width:100%;border-radius:8px;border:1px solid var(--line)}
+.doc{display:grid;grid-template-columns:250px minmax(0,1fr);max-width:1250px;margin:0 auto}
+.doc nav{position:sticky;top:60px;align-self:start;max-height:calc(100vh - 60px);overflow:auto;padding:20px 12px;border-right:1px solid var(--line)}
+.doc nav a{display:block;color:var(--muted);text-decoration:none;padding:4px 8px;border-radius:6px}.doc nav a:hover{background:var(--panel);color:var(--text)}
+.doc nav a.l2{color:var(--text);font-weight:600;margin-top:8px}.doc nav a.l3{padding-left:20px;font-size:14px}
+.doc nav input{width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--bg2);color:var(--text);margin-bottom:10px}
+.doc article{padding:28px 40px 80px;max-width:920px}.doc article h2{border-top:1px solid var(--line);padding-top:26px;margin-top:34px;color:var(--accent)}
+.doc article img{max-width:100%;border-radius:10px;border:1px solid var(--line);margin:10px 0 18px;box-shadow:0 10px 30px rgba(0,0,0,.35)}
+table{border-collapse:collapse}td,th{border:1px solid var(--line);padding:6px 10px;text-align:left}th{background:var(--panel)}
+footer{border-top:1px solid var(--line);color:var(--faint);text-align:center;padding:22px;font-size:13px}
+@media(max-width:860px){.hero,.features{grid-template-columns:1fr}.doc{grid-template-columns:1fr}.doc nav{display:none}.doc article{padding:20px}}
+</style></head><body><header class="top"><img src="icon.svg" alt=""><b>PD2 Filter Forge</b><nav>
+<a href="./" class="">Download</a><a href="guide.html" class="on">How-to guide</a>
+<a href="https://github.com/RoofooEvazan/pd2-filter-forge/releases">Releases</a><a href="https://github.com/RoofooEvazan/pd2-filter-forge">GitHub</a></nav></header>
+<div class="doc"><nav><input id="q" placeholder="Search the guide…"><a class="l2" href="#start">Getting started</a><a class="l3" href="#install">Install and update</a><a class="l3" href="#open">Open or start a filter</a><a class="l3" href="#install-to-pd2">Put it in the game</a><a class="l2" href="#simple">Simple mode</a><a class="l3" href="#simple-items">Change how an item looks</a><a class="l3" href="#strictness">Strictness levels</a><a class="l3" href="#mystery">Mystery drops</a><a class="l3" href="#unid-names">Real names on unidentified items</a><a class="l3" href="#preview">Loot preview</a><a class="l2" href="#shop">Shop hunting</a><a class="l2" href="#advanced">Advanced mode</a><a class="l3" href="#rules">Rules and the inspector</a><a class="l3" href="#lab">Test Lab</a><a class="l3" href="#problems">Problems</a><a class="l3" href="#features">Levels, Aliases, Formulas & Features</a><a class="l3" href="#codex">Codex</a><a class="l2" href="#discord">Discord</a><a class="l2" href="#settings">Settings, themes and shortcuts</a><a class="l2" href="#faq">Troubleshooting</a></nav>
+<article><h1>How-to guide</h1><p>Filter Forge builds loot filters for Project Diablo 2. <strong>Simple mode</strong> is for picking how items look without touching filter code. <strong>Advanced mode</strong> is a full editor for every rule. Switch any time with <strong>Simple | Advanced</strong> at the top.</p>
+<p><a id="start"></a></p>
+<h2>Getting started</h2>
+<p><a id="install"></a></p>
+<h3>Install and update</h3>
+<ol>
+<li>Download <strong>PD2-Filter-Forge_x.y.z_x64-setup.exe</strong> from the <a href="https://roofooevazan.github.io/pd2-filter-forge/">download page</a> and run it.</li>
+<li>If Windows shows “Windows protected your PC”, click <strong>More info → Run anyway</strong>. The app isn&#39;t code-signed, which is why Windows asks.</li>
+<li>Filter Forge checks for updates when it starts. When a new version is out, a banner appears: click <strong>Update to x.y.z</strong> and it closes, updates and reopens by itself. You can also check any time in <strong>Settings → Version</strong>, or from the start screen.</li>
+</ol>
+<p><a id="open"></a></p>
+<h3>Open or start a filter</h3>
+<p><img src="guide/home.jpg" alt="The start screen"></p>
+<ul>
+<li><strong>Starter filter</strong> — a commented filter with strictness levels, runes, currency and junk hiding. The easiest place to begin.</li>
+<li><strong>Blank filter</strong> — nothing but the essentials.</li>
+<li><strong>Open a file…</strong> — any <code>.filter</code> on your PC. Filters in your <code>ProjectD2\filters</code> folder are listed too.</li>
+<li><strong>Public filters</strong> — every filter from the PD2 launcher&#39;s list. Opening one gives you your own copy; the original keeps updating in the launcher.</li>
+</ul>
+<p><a id="install-to-pd2"></a></p>
+<h3>Put it in the game</h3>
+<p>Click <strong>Install to PD2</strong> (top right). The filter is saved into <code>ProjectD2\filters\local</code> (with a <code>.bak</code> of the previous version). In the PD2 launcher pick it under <strong>Local</strong>, then in game choose a strictness level in <em>Options → PD2 Options → Filter Level</em>.</p>
+<p><a id="simple"></a></p>
+<h2>Simple mode</h2>
+<p>Simple mode has four tabs across the top: <strong>Items</strong>, <strong>Mystery drops</strong>, <strong>Loot preview</strong> and <strong>Shop hunting</strong>.</p>
+<p><a id="simple-items"></a></p>
+<h3>Change how an item looks</h3>
+<p><img src="guide/simple-items.jpg" alt="Items in Simple mode"></p>
+<ol>
+<li>Pick a category on the left (Runes, Currency, Uniques…) or type any item name in <strong>Find any item</strong>.</li>
+<li>Every tile shows exactly how your filter draws that item right now. Click one.</li>
+<li>On the right, choose:<ul>
+<li><strong>On the ground</strong> — show it, hide it on stricter levels, or hide it.</li>
+<li><strong>Text color</strong>, stars (<code>*** Name ***</code>), text before or after the name (<code>ooo Name ooo</code>), or a custom name.</li>
+<li>For a weapon or armor base found with <strong>Find any item</strong>, <strong>Only white &amp; grey ones</strong> limits the choice to normal and superior items (runeword bases), leaving magic, rare, set and unique versions alone.</li>
+<li><strong>Drop alert</strong> — a minimap icon (size and color) and a drop sound. Click a sound to hear it.</li>
+</ul>
+</li>
+</ol>
+<p><img src="guide/simple-edit.gif" alt="Changing an item"></p>
+<p>Your choices are saved as a clearly labelled block at the top of the filter, so they win over the rest of it. More specific choices win over broader ones (Large gold piles over Gold), whatever order you made them in. <strong>Reset</strong> puts an item back the way the filter had it.</p>
+<p><a id="strictness"></a></p>
+<h3>Strictness levels</h3>
+<p>The strip under the tabs switches the preview between your filter&#39;s strictness levels, the same ones players choose in game. <strong>Edit levels</strong> renames, adds or removes them. The small row of eyes on each item shows at which levels it&#39;s visible and alerts.</p>
+<p><a id="mystery"></a></p>
+<h3>Mystery drops</h3>
+<p>A mystery hides what dropped behind a banner of your own — like <em>ººº L u c k y  B a s t a r d ººº</em> — with its own minimap icon and sound. You find out what it is when you pick it up.</p>
+<p><img src="guide/mystery.gif" alt="Creating a mystery drop"></p>
+<ol>
+<li>Open the <strong>Mystery drops</strong> tab and pick a starting look.</li>
+<li>Change the banner words and colors, the decoration on both sides, the icon and the sound. A counter warns you before PD2&#39;s 56-character limit.</li>
+<li>Choose when the mystery ends: always when picked up, and optionally when dropped in town or when the item is already identified.</li>
+<li>To add items, open any item under <strong>Items</strong> and pick your mystery under <strong>Mystery drop</strong>. The mystery&#39;s own page lists every item behind it.</li>
+</ol>
+<p><a id="unid-names"></a></p>
+<h3>Real names on unidentified items</h3>
+<p>In <strong>Items → Uniques</strong> or <strong>Set items</strong>, turn on <strong>Show real names on unidentified items</strong>. A dropped Shako then shows as “Harlequin Crest” before you identify it. Items that could be several uniques (rings, amulets…) keep their name, and their tooltip lists what they could be.</p>
+<p><img src="guide/unid.jpg" alt="Unidentified names"></p>
+<p><a id="preview"></a></p>
+<h3>Loot preview</h3>
+<p>A pile of typical drops drawn by your filter, with their minimap icons and alerts, at the strictness level you choose.</p>
+<p><img src="guide/preview.jpg" alt="Loot preview"></p>
+<p><a id="shop"></a></p>
+<h2>Shop hunting</h2>
+<p>Tell the filter what you&#39;re hunting for in vendor windows. Matching items get a label you can&#39;t miss when you hover them. It&#39;s in both modes (the sparkle icon in Advanced mode).</p>
+<p><img src="guide/shop.jpg" alt="Shop hunting"></p>
+<ol>
+<li>Choose your class under <strong>I&#39;m playing</strong>.</li>
+<li>Click <strong>Add a target</strong> and pick a suggestion — +3 to a skill tree, +2 class skills, 4-socket bases, fast boots… — or start from scratch.</li>
+<li>In the editor:<ul>
+<li><strong>1. What to look for</strong> — the item type, quality, and requirements such as a skill tree, class skills, one skill, a stat (FCR, IAS, run speed, resists…) or sockets.</li>
+<li><strong>2. How it looks</strong> — Spotlight, Price tag, Stat readout, Alarm or just a color, the colors, a line with the values you&#39;re hunting, a note, and the price color.</li>
+</ul>
+</li>
+<li><strong>Vendor preview</strong> shows a mock shop stocked with your targets. Hover any item to see its tooltip.</li>
+<li><strong>Gray out everything else in shops</strong> makes your targets stand out even more.</li>
+</ol>
+<p><img src="guide/shop-add.gif" alt="Adding a shop target"></p>
+<p>When an item fits several targets, the most specific one labels it.</p>
+<p><a id="advanced"></a></p>
+<h2>Advanced mode</h2>
+<p>The left rail holds the tools: <strong>Rules</strong>, <strong>Test Lab</strong>, <strong>Levels, Aliases, Formulas &amp; Features</strong>, <strong>Problems</strong>, <strong>Codex</strong>, <strong>Source text</strong> and <strong>Shop hunting</strong>.</p>
+<p><a id="rules"></a></p>
+<h3>Rules and the inspector</h3>
+<p><img src="guide/adv-rules.jpg" alt="Rules and the inspector"></p>
+<ul>
+<li>The rule list shows every rule with a live preview, grouped by the sections in your file. Search by text, code or item name (“shako” finds <code>uap</code> rules), and filter to problems, notifications or hides.</li>
+<li>Words/Code switches between plain-English rules and filter code.</li>
+<li>Select a rule to edit it in the inspector: a plain-English summary, a visual condition builder (ALL/ANY groups, NOT, ranges), and an output editor with colors, icons, sounds, tiers and %CONTINUE%.</li>
+<li><strong>New rule</strong> opens a wizard: highlight items, hide junk from a level, add info tags, or start blank.</li>
+</ul>
+<p><a id="lab"></a></p>
+<h3>Test Lab</h3>
+<p>Build any item — base, unique, set, runeword, quality, ethereal, sockets, item level, stats and skills — and set class, level, difficulty, zone, location and strictness. The Lab shows the exact rules that match, the final label and tooltip, and the notification.</p>
+<p><img src="guide/adv-lab.jpg" alt="Test Lab"></p>
+<p><a id="problems"></a></p>
+<h3>Problems</h3>
+<p>PD2 never reports filter mistakes; it quietly drops or reinterprets what it doesn&#39;t understand. The Problems tab finds those, explains what PD2 actually does, and offers fixes.</p>
+<p><img src="guide/adv-problems.jpg" alt="Problems"></p>
+<ul>
+<li>Each row shows the <strong>problem</strong> on the left and the <strong>suggestion</strong> on the right. Click it for details: what PD2 does with that exact text, a before/after of each fix, and a link to the engine reference.</li>
+<li>Fixes are marked <strong>certain</strong> (same meaning, written so PD2 reads it) or <strong>suggestion</strong> (a guess at what you meant). <strong>Fix all</strong> only applies certain fixes.</li>
+<li><strong>No item has this code:</strong> besides the suggestions, click <strong>Other code…</strong> and type the code (or item name) you meant. It&#39;s checked as you type, and <strong>Apply</strong> only unlocks when the code is real and doesn&#39;t cause a new problem, such as a duplicate of another rule or a code that doesn&#39;t fit the others in the list.</li>
+<li><strong>Copy for AI</strong> makes a text report of every problem and fix, ready to paste into an AI assistant.</li>
+<li><strong>Ask on Discord</strong> posts in the Roofoo Discord&#39;s #filter-help with your filter and the report attached.</li>
+</ul>
+<p><a id="features"></a></p>
+<h3>Levels, Aliases, Formulas &amp; Features</h3>
+<p>Manage strictness levels, aliases (named snippets you reuse in rules) and formulas (calculated values), and switch on filter-wide features like real names for unidentified items.</p>
+<p><a id="codex"></a></p>
+<h3>Codex</h3>
+<p>Every condition and output keyword, item code, stat, skill, zone, color and sound — with how often each is used in your filter. The <strong>Engine reference</strong> explains exactly how PD2 reads filters.</p>
+<p><a id="discord"></a></p>
+<h2>Discord</h2>
+<p><strong>Discord</strong> (top bar) prepares a post for the Roofoo Discord: <strong>Ask for help</strong> (#filter-help) or <strong>Share your filter</strong> (#share-your-filter). The app fills in the channel&#39;s prompt with what it already knows. Then:</p>
+<ol>
+<li><strong>Copy the post</strong>.</li>
+<li><strong>Save the files to attach</strong> (your filter, plus the problems report for help posts).</li>
+<li><strong>Open the channel</strong>, paste, drag the files in, and send. It&#39;s posted from your own account.</li>
+</ol>
+<p><img src="guide/discord.jpg" alt="Discord post"></p>
+<p><a id="settings"></a></p>
+<h2>Settings, themes and shortcuts</h2>
+<p><img src="guide/themes.jpg" alt="Themes"></p>
+<ul>
+<li><strong>Themes</strong> — eight built in. <strong>Make your own</strong> from five colors; your themes can be edited, deleted, and shared as a code others paste into their copy.</li>
+<li><strong>Accent color, density and text size</strong>.</li>
+<li><strong>Save encoding</strong> — UTF-8, which PD2 reads since Season 13.</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Shortcut</th>
+<th>Does</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Mouse back / forward buttons, Alt+← / Alt+→</td>
+<td>Previous / next screen</td>
+</tr>
+<tr>
+<td>Ctrl+K</td>
+<td>Search everything and run commands</td>
+</tr>
+<tr>
+<td>Ctrl+S</td>
+<td>Save</td>
+</tr>
+<tr>
+<td>Ctrl+Z / Ctrl+Y</td>
+<td>Undo / redo</td>
+</tr>
+<tr>
+<td>Alt+1 … Alt+7</td>
+<td>Jump between the tools</td>
+</tr>
+</tbody></table>
+<p><a id="faq"></a></p>
+<h2>Troubleshooting</h2>
+<ul>
+<li><strong>My filter doesn&#39;t show in game.</strong> In the PD2 launcher, choose your filter under <strong>Local</strong>, then pick a strictness level in game.</li>
+<li><strong>An item shows “hidden” but I want to see it.</strong> Open it (Simple: click the tile; Advanced: the rule) and choose <strong>Show it</strong>. Strictness level 0 always shows everything.</li>
+<li><strong>Windows won&#39;t run the installer.</strong> Click <strong>More info → Run anyway</strong> on the SmartScreen warning.</li>
+<li><strong>The “Could be” list doesn&#39;t appear.</strong> A later rule in your filter replaces the tooltip for those items; the panel tells you when that&#39;s the case.</li>
+<li><strong>Something else?</strong> Use <strong>Discord → Ask for help</strong>, or <strong>Problems → Copy for AI</strong>.</li>
+</ul>
+</article></div><footer>PD2 Filter Forge is a fan-made tool for Project Diablo 2 and isn't affiliated with the PD2 team or Blizzard Entertainment.</footer>
+<script>
+// Filter the contents list as you type; Enter jumps to the first match.
+const q=document.getElementById("q"),links=[...document.querySelectorAll(".doc nav a")];
+const text=(id)=>{let el=document.getElementById(id),out="";el=el&&el.parentElement&&el.nextElementSibling;
+  for(let n=document.getElementById(id);n;n=n.nextElementSibling){if(n!==document.getElementById(id)&&n.tagName==="A"&&n.id)break;out+=" "+(n.textContent||"")}return out.toLowerCase()};
+q.addEventListener("input",()=>{const w=q.value.toLowerCase().split(/\s+/).filter(Boolean);
+  links.forEach(a=>{const id=a.getAttribute("href").slice(1);a.style.display=!w.length||w.every(x=>(a.textContent+" "+text(id)).toLowerCase().includes(x))?"":"none"})});
+q.addEventListener("keydown",e=>{if(e.key==="Enter"){const a=links.find(a=>a.style.display!=="none");if(a)location.hash=a.getAttribute("href")}});
+</script></body></html>

@@ -1,0 +1,51 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PD2 Filter Forge — loot filter editor for Project Diablo 2</title><meta name="description" content="Build Project Diablo 2 loot filters visually, test them against any item, and install them into the game.">
+<link rel="icon" href="icon.svg"><style>
+:root{--bg:#0f0d10;--bg2:#151216;--panel:#1a171c;--line:#2e2830;--text:#ebe4d6;--muted:#a1978c;--faint:#6c645c;--accent:#d9a441;color-scheme:dark}
+*{box-sizing:border-box}html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.6 "Segoe UI",system-ui,sans-serif}
+a{color:var(--accent)}code{font-family:"Cascadia Mono",Consolas,monospace;background:var(--bg2);border:1px solid var(--line);border-radius:4px;padding:0 4px;font-size:.9em}
+header.top{display:flex;align-items:center;gap:12px;padding:14px 24px;border-bottom:1px solid var(--line);background:var(--bg2);position:sticky;top:0;z-index:5}
+header.top img{width:30px;height:30px}header.top b{font-size:17px}header.top nav{margin-left:auto;display:flex;gap:18px}
+header.top nav a{color:var(--muted);text-decoration:none;font-weight:600}header.top nav a:hover,header.top nav a.on{color:var(--text)}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:11px 18px;border-radius:9px;border:1px solid var(--line);background:var(--panel);color:var(--text);text-decoration:none;font-weight:600}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#1a1206}.btn:hover{filter:brightness(1.08)}
+.hero{max-width:1100px;margin:0 auto;padding:56px 24px 28px;display:grid;grid-template-columns:1.1fr 1fr;gap:36px;align-items:center}
+.hero h1{font-size:40px;line-height:1.15;margin:0 0 12px}.hero p{color:var(--muted);font-size:17px;margin:0 0 22px}
+.hero img.shot{width:100%;border-radius:12px;border:1px solid var(--line);box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.dl{display:flex;flex-wrap:wrap;gap:10px;align-items:center}.ver{color:var(--faint);font-size:13px;margin-top:10px}
+.features{max-width:1100px;margin:0 auto;padding:10px 24px 60px;display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px}.card h3{margin:0 0 6px}.card p{color:var(--muted);margin:0 0 12px}
+.card img{width:100%;border-radius:8px;border:1px solid var(--line)}
+.doc{display:grid;grid-template-columns:250px minmax(0,1fr);max-width:1250px;margin:0 auto}
+.doc nav{position:sticky;top:60px;align-self:start;max-height:calc(100vh - 60px);overflow:auto;padding:20px 12px;border-right:1px solid var(--line)}
+.doc nav a{display:block;color:var(--muted);text-decoration:none;padding:4px 8px;border-radius:6px}.doc nav a:hover{background:var(--panel);color:var(--text)}
+.doc nav a.l2{color:var(--text);font-weight:600;margin-top:8px}.doc nav a.l3{padding-left:20px;font-size:14px}
+.doc nav input{width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--bg2);color:var(--text);margin-bottom:10px}
+.doc article{padding:28px 40px 80px;max-width:920px}.doc article h2{border-top:1px solid var(--line);padding-top:26px;margin-top:34px;color:var(--accent)}
+.doc article img{max-width:100%;border-radius:10px;border:1px solid var(--line);margin:10px 0 18px;box-shadow:0 10px 30px rgba(0,0,0,.35)}
+table{border-collapse:collapse}td,th{border:1px solid var(--line);padding:6px 10px;text-align:left}th{background:var(--panel)}
+footer{border-top:1px solid var(--line);color:var(--faint);text-align:center;padding:22px;font-size:13px}
+@media(max-width:860px){.hero,.features{grid-template-columns:1fr}.doc{grid-template-columns:1fr}.doc nav{display:none}.doc article{padding:20px}}
+</style></head><body><header class="top"><img src="icon.svg" alt=""><b>PD2 Filter Forge</b><nav>
+<a href="./" class="on">Download</a><a href="guide.html" class="">How-to guide</a>
+<a href="https://github.com/RoofooEvazan/pd2-filter-forge/releases">Releases</a><a href="https://github.com/RoofooEvazan/pd2-filter-forge">GitHub</a></nav></header>
+<section class="hero"><div>
+<h1>Build your PD2 loot filter — visually.</h1>
+<p>Start from scratch or any public filter, change how every item looks, hunt shops, and install it straight into Project Diablo 2. Simple mode needs no filter code at all.</p>
+<div class="dl">
+<a class="btn primary" id="dl-installer" href="https://github.com/RoofooEvazan/pd2-filter-forge/releases/latest">⬇ Download for Windows</a>
+<a class="btn" id="dl-portable" href="https://github.com/RoofooEvazan/pd2-filter-forge/releases/latest">Portable .exe</a>
+<a class="btn" href="guide.html">How-to guide</a></div>
+<div class="ver" id="dl-ver">Latest version: 0.3.6 · Windows 10/11 · free</div>
+<script>
+fetch("https://api.github.com/repos/RoofooEvazan/pd2-filter-forge/releases/latest").then(r=>r.json()).then(j=>{
+  const a=(re)=>(j.assets||[]).find(x=>re.test(x.name));
+  const i=a(/setup\.exe$/i), p=a(/portable.*\.exe$/i);
+  if(i) document.getElementById("dl-installer").href=i.browser_download_url;
+  if(p) document.getElementById("dl-portable").href=p.browser_download_url;
+  if(j.tag_name) document.getElementById("dl-ver").textContent="Latest version: "+j.tag_name.replace(/^v/,"")+" · released "+new Date(j.published_at).toLocaleDateString()+" · Windows 10/11 · free";
+}).catch(()=>{});
+</script>
+</div><img class="shot" src="guide/simple-items.jpg" alt="PD2 Filter Forge"></section>
+<section class="features"><a class="card" href="guide.html#simple-items" style="text-decoration:none;color:inherit"><h3>Simple mode</h3><p>Pick any item and choose its color, stars, name, minimap icon and drop sound — no filter code.</p><img src="guide/simple-edit.gif" alt="Simple mode" loading="lazy"></a><a class="card" href="guide.html#mystery" style="text-decoration:none;color:inherit"><h3>Mystery drops</h3><p>Hide your best drops behind your own “Lucky Bastard” banner until you pick them up.</p><img src="guide/mystery.gif" alt="Mystery drops" loading="lazy"></a><a class="card" href="guide.html#shop" style="text-decoration:none;color:inherit"><h3>Shop hunting</h3><p>Make +3 skill orbs, 4-socket bases and fast boots jump out in vendor windows.</p><img src="guide/shop-add.gif" alt="Shop hunting" loading="lazy"></a><a class="card" href="guide.html#rules" style="text-decoration:none;color:inherit"><h3>Advanced editor</h3><p>Every rule with a live preview, a visual condition builder and an output editor.</p><img src="guide/adv-rules.jpg" alt="Advanced editor" loading="lazy"></a><a class="card" href="guide.html#problems" style="text-decoration:none;color:inherit"><h3>Problems that PD2 hides</h3><p>Finds rules PD2 silently misreads, explains why, and fixes them.</p><img src="guide/adv-problems.jpg" alt="Problems that PD2 hides" loading="lazy"></a><a class="card" href="guide.html#lab" style="text-decoration:none;color:inherit"><h3>Test Lab</h3><p>Build any item and see exactly which rules match and how it looks.</p><img src="guide/adv-lab.jpg" alt="Test Lab" loading="lazy"></a></section><footer>PD2 Filter Forge is a fan-made tool for Project Diablo 2 and isn't affiliated with the PD2 team or Blizzard Entertainment.</footer></body></html>
