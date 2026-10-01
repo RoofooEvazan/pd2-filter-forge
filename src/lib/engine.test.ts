@@ -30,7 +30,8 @@ describe("document round trip", () => {
   it("re-serialises only edited lines", () => {
     const doc = parseFilter("ItemDisplay[r33]:   %ORANGE%Zod  // best rune\n// ==== RUNES ====\n");
     const l = editLine(doc.lines[0], { value: "%RED%ZOD" });
-    expect(l.raw).toBe("ItemDisplay[r33]: %RED%ZOD\t// best rune");
+    // The note keeps its own spacing before the //.
+    expect(l.raw).toBe("ItemDisplay[r33]: %RED%ZOD  // best rune");
     expect(doc.lines[1].kind).toBe("comment");
   });
 

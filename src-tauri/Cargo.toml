@@ -1,6 +1,6 @@
 [package]
 name = "pd2-filter-forge"
-version = "0.3.4"
+version = "0.3.5"
 description = "Loot filter editor for Project Diablo 2"
 authors = []
 edition = "2024"

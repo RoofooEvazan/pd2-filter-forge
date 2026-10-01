@@ -6,7 +6,9 @@
 import { makeBlank, makeComment, makeRule, type Line } from "./document";
 import { composeOutput } from "./output";
 import { ITEM_BY_CODE, DATA } from "./data";
-import type { TestItem } from "./item";
+import { DEFAULT_CTX, makeItem, type TestItem } from "./item";
+import { collectDefinitions } from "./document";
+import { compileCondition, evalTree } from "./conditions";
 
 export interface Group {
   id: string;
@@ -29,6 +31,9 @@ export interface SimpleStyle {
   color?: string;
   stars?: boolean;
   rename?: string;
+  /** Text shown before / after the name ("ooo ", " [GG]"). */
+  prefix?: string;
+  suffix?: string;
   icon?: { size: "px" | "dot" | "map" | "border"; hex: string };
   sound?: number;
   /** Text alert only up to this filter level. */
@@ -213,7 +218,7 @@ export const CATALOG: Category[] = [
 export const ALL_GROUPS = new Map<string, Group>(CATALOG.flatMap((c) => c.groups.map((x) => [x.id, x] as const)));
 
 /** A group for one specific item picked by search (base, unique or set). */
-export function itemGroup(kind: "base" | "unique" | "set", code: string): Group {
+export function itemGroup(kind: "base" | "white" | "unique" | "set", code: string): Group {
   const base = ITEM_BY_CODE.get(code);
   const bn = base?.n ?? code;
   if (kind === "unique") {
@@ -224,7 +229,14 @@ export function itemGroup(kind: "base" | "unique" | "set", code: string): Group 
     const names = DATA.sets.filter((u) => u.c === code).map((u) => u.n);
     return g(`set.${code}`, names.length === 1 ? names[0] : `Set ${bn}`, `${code} SET`, item(code, { quality: "set", title: names[0] }), `Set ${bn}: ${names.join(", ")}`);
   }
+  if (kind === "white") return g(`white.${code}`, `${bn} (white & grey)`, `${code} NMAG`, item(code), `${bn}: normal and superior ones only — not magic, rare, set or unique`);
   return g(`item.${code}`, bn, code, item(code, base?.stk ? { qty: 1 } : {}), `Every ${bn}, any quality`);
+}
+
+/** Weapons and armor come in white/grey, magic, rare, set and unique versions; a choice can cover just the first. */
+export function hasQualities(code: string): boolean {
+  const c = ITEM_BY_CODE.get(code)?.cat;
+  return c === "weapon" || c === "armor";
 }
 
 /** Resolve a stored id back to a group, including search-made ones. */
@@ -234,6 +246,7 @@ export function groupFor(id: string): Group | undefined {
   const [kind, code] = id.split(".");
   if (!ITEM_BY_CODE.has(code)) return undefined;
   if (kind === "item") return itemGroup("base", code);
+  if (kind === "white") return itemGroup("white", code);
   if (kind === "uni") return itemGroup("unique", code);
   if (kind === "set") return itemGroup("set", code);
   return undefined;
@@ -497,12 +510,12 @@ function plainText(s: string) {
 }
 
 export function isEmptyStyle(s: SimpleStyle) {
-  return s.hide == null && !s.color && !s.stars && !s.rename && !s.icon && s.sound == null && s.tier == null && !s.mystery;
+  return s.hide == null && !s.color && !s.stars && !s.rename && !s.prefix && !s.suffix && !s.icon && s.sound == null && s.tier == null && !s.mystery;
 }
 
 /** Whether the choice changes the item's text (and so replaces the filter's own look). */
 export function changesLook(s: SimpleStyle) {
-  return !!(s.color || s.stars || s.rename);
+  return !!(s.color || s.stars || s.rename || s.prefix || s.suffix);
 }
 
 function rulesFor(id: string, group: Group, s: SimpleStyle, withJson: boolean): Line[] {
@@ -519,7 +532,9 @@ function rulesFor(id: string, group: Group, s: SimpleStyle, withJson: boolean): 
     // %BASENAME% is the same text without the built-in color.
     const builtInColor = !!ITEM_BY_CODE.get(group.sample.code)?.col;
     const nm = s.rename ? plainText(s.rename) : s.color && builtInColor ? "%BASENAME%" : "%NAME%";
-    const name = s.stars ? `${c}*** ${c}${nm} ${c}***` : `${c}${nm}`;
+    const before = s.stars ? "*** " : s.prefix ? plainText(s.prefix) : "";
+    const after = s.stars ? " ***" : s.suffix ? plainText(s.suffix) : "";
+    const name = before || after ? `${c}${before}${c}${nm}${c}${after}` : `${c}${nm}`;
     out.push(makeRule(group.cond, composeOutput({ name, desc: null, effects }), noteFor()));
   } else if (alerts) {
     // Only an alert: keep the filter's own look by continuing to its rules.
@@ -550,8 +565,9 @@ function writeBlock(lines: Line[], choices: Map<string, SimpleStyle>, mysteries:
   }
   if (choices.size === 0 && mysteries.length === 0) return kept;
 
-  // Search-made single items first (most specific), then the catalog order.
-  const order = [...choices.keys()].sort((a, b) => rank(a) - rank(b));
+  // Most specific first, so "Large gold piles" beats "Gold (any pile)" and "Unique rings" beats
+  // "Ring (any quality)"; ties keep the catalog order.
+  const order = [...choices.keys()].sort((a, b) => specificity(a) - specificity(b) || rank(a) - rank(b));
   const block: Line[] = [makeComment(HEADER), makeComment(BLURB)];
   for (const m of mysteries) block.push(makeComment(`${MTAG}${m.id} ${JSON.stringify({ ...m, id: undefined })}`));
   // Mystery banners come before everything else in the block, so they win on the ground.
@@ -595,6 +611,35 @@ export function deleteMystery(lines: Line[], id: string): Line[] {
 }
 
 const CATALOG_ORDER = new Map([...ALL_GROUPS.keys()].map((k, i) => [k, i]));
+
+// ---- specificity: how many items of a broad sample a choice covers (fewer = more specific)
+let universe: TestItem[] | null = null;
+function sampleUniverse(): TestItem[] {
+  if (universe) return universe;
+  const out: TestItem[] = [];
+  const Q: Record<string, TestItem["quality"][]> = { weapon: ["normal", "superior", "magic", "rare", "unique", "set"], armor: ["normal", "superior", "magic", "rare", "unique", "set"] };
+  for (const b of DATA.items) {
+    const qs = Q[b.cat] ?? (b.tc.some((t) => /^(ring|amul|jewl|scha|mcha|lcha|char)$/.test(t)) ? ["magic", "rare", "unique", "set"] : ["normal"]);
+    for (const q of qs) out.push(makeItem(b.c, { quality: q, identified: false, ...(b.stk ? { qty: 1 } : {}) }));
+  }
+  for (const gold of [120, 1500, 8000]) out.push(makeItem("gld", { gold }));
+  universe = out;
+  return out;
+}
+const specificityMemo = new Map<string, number>();
+const NO_DEFS = collectDefinitions([]);
+export function specificity(id: string): number {
+  const hit = specificityMemo.get(id);
+  if (hit != null) return hit;
+  const g = groupFor(id);
+  let n = Number.MAX_SAFE_INTEGER;
+  if (g) {
+    const { tree, error } = compileCondition(g.cond, NO_DEFS);
+    if (!error) n = sampleUniverse().filter((item) => evalTree(tree, { item, ctx: { ...DEFAULT_CTX, filtlvl: 0 }, defs: NO_DEFS })).length;
+  }
+  specificityMemo.set(id, n);
+  return n;
+}
 function rank(id: string) {
   return CATALOG_ORDER.get(id) ?? -1;
 }

@@ -1,7 +1,7 @@
 // Dev-only screen presets: ?demo&mode=simple|advanced&view=<view>&cat=<simple category>&theme=<theme>&cls=<0-6>
 // Opens the starter filter (with a few example choices) so every screen has something to show.
 import { actions, type View } from "./store";
-import { starterFilter } from "../lib/templates";
+import { blankFilter, starterFilter } from "../lib/templates";
 import { parseFilter } from "../lib/document";
 import { MYSTERY_PRESETS, applyChoice, saveMystery } from "../lib/simple";
 import { shopTemplates, writeShop } from "../lib/shop";
@@ -9,7 +9,7 @@ import { shopTemplates, writeShop } from "../lib/shop";
 export function applyDemoParams(p: URLSearchParams) {
   if (!p.has("demo")) return;
   const cls = Number(p.get("cls") ?? 1);
-  let lines = parseFilter(starterFilter("My Filter")).lines;
+  let lines = parseFilter(p.has("blank") ? blankFilter("My Filter") : starterFilter("My Filter")).lines;
   if (p.has("examples")) {
     lines = saveMystery(lines, { ...MYSTERY_PRESETS[1], id: "m1" });
     lines = applyChoice(lines, "rune.r30", { mystery: "m1" });

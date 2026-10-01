@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.3.5 — 2026-09-30
+
+Found by rebuilding every public launcher filter (115 filters from 19 authors) with Filter Forge.
+
+### Simple mode
+
+- **More specific choices win.** Choices are ordered by how many items they cover, so “Large gold piles” beats “Gold (any pile)” and “Unique rings” beats “Ring (any quality)”, whatever order you made them in.
+- **“Only white & grey ones”** switch for searched weapon and armor bases, so a runeword-base choice doesn't also hide the magic, rare, set and unique versions.
+- **Text before / after the name**, e.g. `ooo Name ooo` or `[GG] Name`. Stars are now one preset of this.
+
+### Saving
+
+- **No added final newline:** a file that didn't end with a newline no longer gets one when saved. Every public filter now saves back byte-for-byte.
+- **Disabled rules keep their `// ` spacing** when edited.
+- **A bare `//` at the end of a line is kept**, and an edited line keeps its own spacing before `//` (new notes use a space instead of a tab).
+
 ## 0.3.4 — 2026-09-30
 
 ### How-to guide and website

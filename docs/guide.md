@@ -41,12 +41,13 @@ Simple mode has four tabs across the top: **Items**, **Mystery drops**, **Loot p
 2. Every tile shows exactly how your filter draws that item right now. Click one.
 3. On the right, choose:
    - **On the ground** — show it, hide it on stricter levels, or hide it.
-   - **Text color**, stars (`*** Name ***`), or a custom name.
+   - **Text color**, stars (`*** Name ***`), text before or after the name (`ooo Name ooo`), or a custom name.
+   - For a weapon or armor base found with **Find any item**, **Only white & grey ones** limits the choice to normal and superior items (runeword bases), leaving magic, rare, set and unique versions alone.
    - **Drop alert** — a minimap icon (size and color) and a drop sound. Click a sound to hear it.
 
 ![Changing an item](guide/simple-edit.gif)
 
-Your choices are saved as a clearly labelled block at the top of the filter, so they win over the rest of it. **Reset** puts an item back the way the filter had it.
+Your choices are saved as a clearly labelled block at the top of the filter, so they win over the rest of it. More specific choices win over broader ones (Large gold piles over Gold), whatever order you made them in. **Reset** puts an item back the way the filter had it.
 
 <a id="strictness"></a>
 ### Strictness levels

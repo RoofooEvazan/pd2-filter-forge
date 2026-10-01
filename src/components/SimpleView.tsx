@@ -17,6 +17,7 @@ import {
   applyChoice,
   changesLook,
   groupFor,
+  hasQualities,
   itemGroup,
   readChoices,
   readMysteries,
@@ -188,7 +189,7 @@ export function SimpleView() {
 
         <aside className="simple-editor">
           {selected ? (
-            <StyleEditor key={selected.id} g={selected} onOpenMystery={(id) => pick(MYS + id)} />
+            <StyleEditor key={selected.id} g={selected} onOpenMystery={(id) => pick(MYS + id)} onSwitch={(id) => setSel(id)} />
           ) : mystery ? (
             <MysteryEditor m={mystery} members={groups.length} onDeleted={() => pick(CHANGES)} />
           ) : mysId ? (
@@ -334,7 +335,7 @@ function LevelsDialog({ onClose }: { onClose: () => void }) {
 
 // ---------------------------------------------------------------- style editor
 
-function StyleEditor({ g, onOpenMystery }: { g: Group; onOpenMystery: (id: string) => void }) {
+function StyleEditor({ g, onOpenMystery, onSwitch }: { g: Group; onOpenMystery: (id: string) => void; onSwitch: (id: string) => void }) {
   const a = useAnalysis();
   const ctx = useStore((s) => s.ctx);
   const current = readChoices(a.lines).get(g.id) ?? {};
@@ -359,6 +360,23 @@ function StyleEditor({ g, onOpenMystery }: { g: Group; onOpenMystery: (id: strin
         <div className="grow">
           <h3 style={{ margin: 0 }}>{g.label}</h3>
           {g.hint && <div className="small muted">{g.hint}</div>}
+          {(g.id.startsWith("item.") || g.id.startsWith("white.")) && hasQualities(g.sample.code) && (
+            <label className="row small" style={{ marginTop: 6 }} title="Runeword bases are usually white or grey. Magic, rare, set and unique versions keep their own look.">
+              <button
+                className={`switch ${g.id.startsWith("white.") ? "on" : ""}`}
+                onClick={() => {
+                  const code = g.sample.code;
+                  const next = g.id.startsWith("white.") ? `item.${code}` : `white.${code}`;
+                  // Move any choice made so far to the new scope.
+                  let lines = applyChoice(getState().doc!.lines, g.id, null);
+                  if (Object.keys(current).length) lines = applyChoice(lines, next, current);
+                  actions.setLines(lines);
+                  onSwitch(next);
+                }}
+              />
+              Only white &amp; grey (normal/superior) ones
+            </label>
+          )}
         </div>
         {custom && (
           <button className="btn sm" onClick={reset} title="Go back to how the filter shows it">
@@ -443,10 +461,14 @@ function StyleEditor({ g, onOpenMystery }: { g: Group; onOpenMystery: (id: strin
               ))}
             </div>
             <label className="row">
-              <button className={`switch ${current.stars ? "on" : ""}`} onClick={() => set({ stars: current.stars ? undefined : true })} />
+              <button className={`switch ${current.stars ? "on" : ""}`} onClick={() => set({ stars: current.stars ? undefined : true, prefix: undefined, suffix: undefined })} />
               Make it stand out with <b>*** stars ***</b>
             </label>
             <RenameField value={current.rename ?? ""} onCommit={(v) => set({ rename: v.trim() || undefined })} />
+            <div className="row" style={{ gap: 8 }}>
+              <DecorField label="Text before the name" placeholder="e.g. ooo " value={current.prefix ?? ""} onCommit={(v) => set({ prefix: v || undefined, stars: undefined })} />
+              <DecorField label="Text after the name" placeholder="e.g.  ooo" value={current.suffix ?? ""} onCommit={(v) => set({ suffix: v || undefined, stars: undefined })} />
+            </div>
             {changesLook(current) && <div className="help">Your text choices replace how the filter writes this item's name.</div>}
           </Section>
 
@@ -516,6 +538,24 @@ function ChoiceCard({ on, icon, title, sub, onClick }: { on: boolean; icon: stri
       <b>{title}</b>
       <span className="small muted">{sub}</span>
     </button>
+  );
+}
+
+function DecorField({ label, placeholder, value, onCommit }: { label: string; placeholder: string; value: string; onCommit: (v: string) => void }) {
+  const [v, setV] = useState(value);
+  return (
+    <label className="field grow">
+      <span className="label">{label}</span>
+      <input
+        className="input"
+        placeholder={placeholder}
+        value={v}
+        maxLength={20}
+        onChange={(e) => setV(e.target.value)}
+        onBlur={() => v !== value && onCommit(v)}
+        onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
+      />
+    </label>
   );
 }
 

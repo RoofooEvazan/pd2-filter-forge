@@ -93,6 +93,20 @@ If the project lives under a virtualized Windows path (like the Claude app's scr
 2. Add the release notes to the top of `CHANGELOG.md`.
 3. Build (`npm run desktop:build`), then tag and publish a GitHub release named `vX.Y.Z` with those notes, attaching the installer and the portable exe (named `PD2-Filter-Forge_X.Y.Z_x64-setup.exe` and `PD2-Filter-Forge_X.Y.Z_portable.exe`, which is what the update check looks for).
 
+## Stress test
+
+`stress/` rebuilds every public launcher filter with the app's own editing paths and compares the result with the original:
+- **`download.test.ts`** fetches the launcher's public filters.
+- **`rebuild.test.ts`** checks the Advanced rebuild: byte-exact saving, visual-builder and output-editor round trips, and item-by-item behaviour.
+- **`simple.test.ts`** measures Simple-mode coverage.
+- **`ui-rebuild.mjs`** types rules through the real UI in Edge.
+
+They only run when `FF_STRESS_DIR` points at the downloaded filters, e.g.:
+
+```bash
+FF_STRESS_DIR=path/to/filters FF_SHARD=0 FF_SHARDS=1 npx vitest run stress/rebuild.test.ts
+```
+
 ## Website and guide
 
 - `docs/guide.md` is the how-to guide. The app shows it in the **How-to guide** tab, and `npm run site` turns it into the website in `site/`.

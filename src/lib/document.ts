@@ -15,6 +15,10 @@ export interface Line {
   dirty?: boolean;
   /** A directive commented out with a leading // (a disabled rule). */
   disabled?: boolean;
+  /** Spaces between the // and the directive of a disabled line ("// ItemDisplay…"), kept when it's edited. */
+  disabledGap?: string;
+  /** Whitespace before a trailing "// note" (kept when the line is edited; a space by default). */
+  noteSep?: string;
   /** Text inside the [brackets]. */
   key?: string;
   /** Text after the colon, trimmed. */
@@ -42,6 +46,8 @@ export interface FilterDoc {
   eol: "\r\n" | "\n";
   /** The file started with a UTF-8 byte-order mark (PD2 doesn't strip it). */
   bom?: boolean;
+  /** The last line had no line ending (saved back the same way). */
+  noFinalEol?: boolean;
 }
 
 let nextId = 1;
@@ -85,15 +91,17 @@ export function parseLine(raw: string): Line {
     const inner = body.indexOf("//");
     const d = parseDirective(inner >= 0 ? body.slice(0, inner) : body);
     if (d && /^\s*[A-Za-z]+\[/.test(body)) {
-      return { id, kind: d.kind, raw, disabled: true, key: d.key, value: d.value, note: inner >= 0 ? body.slice(inner + 2) : undefined, indent };
+      const gap = body.match(/^[ \t]*/)![0];
+      return { id, kind: d.kind, raw, disabled: true, ...(gap ? { disabledGap: gap } : {}), key: d.key, value: d.value, note: inner >= 0 ? body.slice(inner + 2) : undefined, indent };
     }
     return { id, kind: "comment", raw, text: body };
   }
 
   const body = ci >= 0 ? raw.slice(0, ci) : raw;
   const note = ci >= 0 ? raw.slice(ci + 2) : undefined;
+  const sep = ci >= 0 ? body.match(/[ \t]*$/)![0] : "";
   const d = parseDirective(body);
-  if (d) return { id, kind: d.kind, raw, key: d.key, value: d.value, note, indent };
+  if (d) return { id, kind: d.kind, raw, key: d.key, value: d.value, note, ...(note != null && sep !== " " ? { noteSep: sep } : {}), indent };
   return { id, kind: "other", raw };
 }
 
@@ -102,8 +110,9 @@ export function parseFilter(text: string): FilterDoc {
   const bom = text.charCodeAt(0) === 0xfeff;
   const src = bom ? text.slice(1) : text;
   const parts = src.split(/\r?\n/);
+  const noFinalEol = src.length > 0 && !src.endsWith("\n");
   if (parts.length > 1 && parts[parts.length - 1] === "") parts.pop();
-  return { lines: parts.map(parseLine), eol, bom };
+  return { lines: parts.map(parseLine), eol, bom, ...(noFinalEol ? { noFinalEol } : {}) };
 }
 
 const HEAD: Record<DirectiveKind, string> = { rule: "ItemDisplay", alias: "Alias", formula: "Formula", level: "ItemDisplayFilterName" };
@@ -116,8 +125,9 @@ export function lineText(l: Line): string {
     case "formula":
     case "level": {
       const v = l.value ?? "";
-      let s = `${l.indent ?? ""}${l.disabled ? "//" : ""}${HEAD[l.kind]}[${l.key ?? ""}]:${v ? " " + v : ""}`;
-      if (l.note != null && l.note !== "") s += (v ? "\t//" : " //") + l.note;
+      let s = `${l.indent ?? ""}${l.disabled ? `//${l.disabledGap ?? ""}` : ""}${HEAD[l.kind]}[${l.key ?? ""}]:${v ? " " + v : ""}`;
+      // An empty note is a bare "//" the author left at the end of the line; keep it.
+      if (l.note != null) s += `${l.noteSep ?? " "}//${l.note}`;
       return s;
     }
     case "comment":
@@ -130,7 +140,7 @@ export function lineText(l: Line): string {
 }
 
 export function serializeFilter(doc: FilterDoc): string {
-  return doc.lines.map(lineText).join(doc.eol) + doc.eol;
+  return doc.lines.map(lineText).join(doc.eol) + (doc.noFinalEol ? "" : doc.eol);
 }
 
 /** Return a copy of a line with changes applied and marked for re-serialisation. */
