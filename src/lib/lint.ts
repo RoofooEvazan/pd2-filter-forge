@@ -133,7 +133,7 @@ export const CHECKS: CheckDef[] = [
   C("sem.affix-op", "PREFIX/SUFFIX with < or >", "breaks", "Affix ids only support = and ~; with < or > the condition is always false. They're also always false on uniques and sets.", "condition-reference"),
   C("sem.res", "RES compares all four resists", "misleads", "RES<30 means every resistance is below 30, not the lowest one.", "condition-reference"),
   C("sem.maptier", "MAPTIER< also matches non-maps", "misleads", "Non-maps have map tier −1, so MAPTIER<n is true for every other item.", "condition-reference"),
-  C("sem.stacked", "Unstacked rune or gem code only", "misleads", "Runes (and flawless/perfect gems) usually drop as the stacked item (r30s, gpws), which this code doesn't match.", "item-codes"),
+  C("sem.stacked", "Old stacked rune or gem code only", "misleads", "Since Season 14 runes and gems stack under their plain code (r30, gpw). The old stacked items (r30s, gpws) no longer drop, so a rule with only those misses new drops.", "item-codes"),
   C("sem.gold", "GOLD combined with other items", "breaks", "GOLD is only true for gold piles.", "condition-reference"),
   // output
   C("out.unknown", "Unknown %KEYWORD%", "display", "PD2 prints unknown keywords literally.", "output-keywords"),
@@ -218,7 +218,7 @@ const ADVICE: Record<string, string> = {
   "sem.affix-op": "Use = or ~ with affix ids, and don't combine PREFIX/SUFFIX with UNI or SET.",
   "sem.res": "If you mean one resistance, use FRES, CRES, LRES or PRES instead.",
   "sem.maptier": "Add MAP (or map codes) so it only applies to maps.",
-  "sem.stacked": "Also match the stacked code.",
+  "sem.stacked": "Also match the plain code.",
   "sem.gold": "Give GOLD its own rule.",
   "out.unknown": "Fix the spelling. For a literal percent sign write %PERCENT%.",
   "out.params": "Check the keyword's numbers in Codex → Output.",
@@ -275,6 +275,7 @@ const list = (xs: string[]) => (xs.length <= 1 ? xs.join("") : `${xs.slice(0, -1
 const QUALITY = ["NMAG", "MAG", "RARE", "SET", "UNI", "CRAFT"];
 const safe = (fixes: Fix[]): Fix[] => fixes.map((f) => ({ ...f, safe: true }));
 const TIERS = ["NORM", "EXC", "ELT"];
+const GRAIL_FLAGS = ["ANYDISCOVERED", "ALLDISCOVERED", "ANYOWNED", "ALLOWNED"];
 const PARAM_PREFIXES = ["CHARSTAT", "STAT", "CHSK", "TABSK", "CLSK", "SK", "OS"];
 
 /** Shared per-lint-pass context. */
@@ -759,6 +760,18 @@ function semanticIssues(l: Line, i: number, r: CompiledRule, levelCount: number)
     for (const [k, bad, why] of kinds) if (bad && req.some((x) => x.kw?.code === k)) out.push(issue(k === "GOLD" ? "sem.gold" : "sem.conflict", l, i, `${base.n}: ${why}.`));
     if (base.cat === "misc" && flags.includes("ETH")) out.push(issue("sem.conflict", l, i, `${base.n} can't be ethereal.`));
   }
+  // Holy grail keywords only ever match uniques and set items.
+  const grail = flags.find((f) => GRAIL_FLAGS.includes(f));
+  if (grail) {
+    const other = q.find((f) => f !== "UNI" && f !== "SET");
+    const noGrail = codes.find((c) => !DATA.uniques.some((u) => u.c === c) && !DATA.sets.some((u) => u.c === c));
+    if (other || noGrail) {
+      const what = other ? `${other} items` : `${ITEM_BY_CODE.get(noGrail!)!.n} (${noGrail}), which has no unique or set version,`;
+      out.push(issue("sem.conflict", l, i, `${grail} is only true for uniques and set items, so it's never true for ${what}.`, [], grail, {
+        detail: "The holy grail (Compendium) only tracks uniques and set items. For every other item the found/owned state is empty, so this part is false.",
+      }));
+    }
+  }
   if (req.some((x) => x.kw?.code === "GOLD") && (codes.length || flags.some((f) => ["WEAPON", "ARMOR"].includes(f)))) out.push(issue("sem.gold", l, i, "GOLD is only true for gold piles, so combining it with other items never matches."));
 
   // Contradictory ranges and impossible values on the same key.
@@ -805,12 +818,13 @@ function semanticIssues(l: Line, i: number, r: CompiledRule, levelCount: number)
     if (k === "MAPTIER" && leaf.op === "<" && !flags.includes("MISC") && !codesIn(r.bh.tree!).length)
       out.push(issue("sem.maptier", l, i, `${leaf.text} is also true for every item that isn't a map.`, [], leaf.text, { detail: "Items that aren't maps have map tier −1, which is below any number you compare against." }));
   }
-  // Unstacked runes/gems without their stacked twin.
+  // Old (pre-Season 14) rune/gem stacks without the plain code that drops now.
   const allCodes = new Set(r.bh.tree ? codesIn(r.bh.tree) : []);
   for (const c of allCodes) {
-    const stacked = `${c}s`;
-    if (/^r\d\d$/.test(c) && !allCodes.has(stacked) && ITEM_BY_CODE.has(stacked)) {
-      out.push(issue("sem.stacked", l, i, `${ITEM_BY_CODE.get(c)?.n} drops as ${stacked} (stacked) too; this rule only matches ${c}.`, safe(replaceInRaw(l, c, `(${c} OR ${stacked})`, `Also match ${stacked}`)), c));
+    const plain = c.slice(0, -1);
+    const old = ITEM_BY_CODE.get(c);
+    if (c.endsWith("s") && old?.n.endsWith("(old)") && !allCodes.has(plain) && ITEM_BY_CODE.has(plain)) {
+      out.push(issue("sem.stacked", l, i, `${c} is the old stacked ${ITEM_BY_CODE.get(plain)!.n}. Since Season 14 it drops as ${plain}, which this rule doesn't match.`, safe(replaceInRaw(l, c, `(${plain} OR ${c})`, `Also match ${plain}`)), c));
       break;
     }
   }

@@ -73,6 +73,17 @@ In **Items → Uniques** or **Set items**, turn on **Show real names on unidenti
 
 ![Unidentified names](guide/unid.jpg)
 
+<a id="grail"></a>
+### Holy grail (Season 14)
+
+Season 14's Compendium remembers every unique and set item you've found (identified). Open **Items → Holy grail** and turn it on:
+
+- **Tag items you haven't found yet:** a tag after the name, like *Shako* **[NEW]**, in the color you choose. An unidentified item is tagged while any unique or set it could be is still missing (or, if you prefer, only when none of them is found). You can add a drop alert (minimap icon and sound) for these.
+- **Items you've already found** are hidden, on every level or only on stricter ones, or kept if you'd rather.
+- **Your filter still wins:** items your filter shows specifically stay shown after they're found. These are items a rule names by base, or that you changed in Simple mode. The list is filled in for you; remove any you don't need, or add others by name.
+
+It's written as its own block near the top of the filter and does nothing on game versions before Season 14. The same panel is under **Uniques** and **Set items**, and in Advanced mode under **Levels, Aliases, Formulas & Features**. To test it, set **Found before** on a unique or set item in the **Test Lab**. Advanced filters can use the conditions directly: `ANYDISCOVERED`, `ALLDISCOVERED`, `ANYOWNED` and `ALLOWNED` (see the Codex).
+
 <a id="preview"></a>
 ### Loot preview
 

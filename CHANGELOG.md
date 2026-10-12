@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.3.7 — 2026-10-12
+
+### Holy grail (Season 14)
+
+- **New in Simple mode: Items → Holy grail** (also under Uniques / Set items, and in Advanced mode under Levels, Aliases, Formulas & Features). It does three things:
+  - **Tags** uniques and set items you haven't found yet, with your own text and color and an optional drop alert.
+  - **Hides** the ones you have, always or only on stricter levels.
+  - **Keeps showing** what your filter shows specifically: items a rule names, or that you chose in Simple mode. You can edit that list.
+- **Safe before Season 14:** the rules do nothing on older game versions, rather than hiding every unique.
+- **New conditions** ANYDISCOVERED, ALLDISCOVERED, ANYOWNED and ALLOWNED, taken from PD2's filter engine source. They're in autocomplete, the Codex and the engine reference. For an unidentified item they ask about every unique/set it could be.
+- **Test Lab:** "Found before" and "In the Compendium" settings for unique and set items.
+- **Problems:** flags grail conditions on items that can't be in the grail, e.g. `MAG ANYDISCOVERED`.
+
+### Season 14 data
+
+- **New items:** the uniques Spectral Plate and Warriv's Warder, the runewords Deception, Jealousy, Madness and Finesse, the maps Poisoned Well (tier 1), Dark Temple and Descent from Mount Arreat (tier 2), and 9 new jewel prefixes.
+- **Changed:** Sanatorium Map moves to tier 1, and 10 bases get more sockets.
+- **Runes and gems** now drop under their plain codes (r30, gpw). The old stacked items are renamed "… (old)". The Problems check that used to ask for the stacked code now flags rules that only match the old one.
+
 ## 0.3.6 — 2026-09-30
 
 ### Problems

@@ -247,6 +247,18 @@ Any operator on these is ignored.
 - **FOOLS:** stat 218 plus stat 224 in the item's magic list.
 - **CLASS:** any class-restricted base.
 
+### Holy grail (Season 14)
+
+The Compendium tracks which uniques and set items you've found. BH asks ProjectDiablo.dll through its `D2Client_GetItemDiscoveryState` export (`DiscoveryStateCondition`, BH commits 48ff393 and 5d85a8d, 2026-09/10).
+
+- **ANYDISCOVERED / ALLDISCOVERED:** found before. An item counts as found once it has been identified in a game it dropped in.
+- **ANYOWNED / ALLOWNED:** stored in the Compendium.
+- **Unidentified items** have no unique/set id on the client, so the dll checks **every unique/set the base could be**. ANY = at least one of them, ALL = every one. On an identified item ANY and ALL are the same.
+- Items that aren't in the grail (anything other than uniques and sets) never match.
+- The keywords are **case-sensitive**: `allDiscovered` is read as the item code `allD`.
+- They are false when ProjectDiablo.dll isn't loaded.
+- Typical use: mark possible new finds with `(UNI OR SET) !ALLDISCOVERED … %CONTINUE%`, and hide finished bases with `(UNI OR SET) ALLDISCOVERED`. Filter Forge emulates them from the Test Lab's "Found before" and "In the Compendium" settings.
+
 ### Item groups
 
 - **Weapon subgroups.** The group is the **first ancestor type found** in this order: club, mace, hammer, wand, staff, bow, axe, scepter, sword, knife, javelin, spear, polearm, crossbow.
@@ -338,14 +350,15 @@ Checks: `sem.conflict`, `sem.range-conflict`, `sem.domain`, `sem.affix-op`, `sem
 ---
 
 <a id="item-codes"></a>
-## 7. Item codes worth knowing (Season 13 data)
+## 7. Item codes worth knowing (Season 14 data)
 
-- **Runes.** `r01`–`r33` and stacked `r01s`–`r33s` are **different codes**. Runes have stacked since S1 and usually drop stacked, so use `RUNE=n` or `(r30 OR r30s)`.
-- **Gems.** Flawless and perfect gems stack: `gzvs gpvs glys gpys glbs gpbs glgs gpgs glrs gprs glws gpws skls skzs` (types gg3x / gg4x).
+- **Runes.** `r01`–`r33` and the old stacks `r01s`–`r33s` are **different codes**. Since S14 runes and gems stack natively (up to 50) under their plain codes, so `r30` is what drops. The `…s` items are renamed "… (old)" and no longer drop or cube, but existing ones remain. `RUNE=n` or `(r30 OR r30s)` covers both.
+- **Gems.** The same goes for gems and skulls. The old stacks are `gzvs gpvs glys gpys glbs gpbs glgs gpgs glrs gprs glws gpws skls skzs` (types gg3x / gg4x).
 - **Maps.**
   - Types t1m–t5m, plus `pvpd`/`pvpm` and `ubr`.
   - The number in a code is **not** its tier: `t12` is tier 2.
   - Uniques are `t51`–`t58`. Tier 3 `t3b` is new in S13.
+  - New in S14: `t18` Poisoned Well (tier 1), `t29` Dark Temple and `t2a` Descent from Mount Arreat (tier 2). `t14` Sanatorium moves from tier 2 to tier 1.
   - Use MAPTIER rather than code patterns.
 - **Shards.** `wss`, `cwss` (tainted) and `iwss` (catalyst) have their color built into the name.
 - **Currency.** `imma imrn imra rera scou upma upmp fort scrb lbox lpp rkey`, the infused `irma irrn irra rrra urma`, and the craft infusions `crfb crfc crfs crfh crfv crfu crfp`.
@@ -653,7 +666,7 @@ Checks: `levels.max`, `levels.hotkey`, `sem.domain` (FILTLVL above the defined l
 <a id="history"></a>
 ## 20. Feature history (BH `ItemDisplay.cpp`, 173 commits)
 
-Seasons: S5 2022-06, S6 2022-11, S7 2023-04, S8 2023-09, S9 2024-04, S10 2024-10, S11 2025-05, S12 2025-11, S13 2026-04. **Bold** entries change the meaning of existing filters.
+Seasons: S5 2022-06, S6 2022-11, S7 2023-04, S8 2023-09, S9 2024-04, S10 2024-10, S11 2025-05, S12 2025-11, S13 2026-04, S14 2026-10. **Bold** entries change the meaning of existing filters.
 
 - **2021:** CRAFTALVL, class keywords, PREFIX/SUFFIX, MAPID, 1H/2H, SHOP, EQUIPPED, GEMMED.
 - **2022-05:** filter levels (`ItemDisplayFilterName`, FILTLVL, `%TIER%`); **level 0 never hides**.
@@ -693,6 +706,7 @@ Seasons: S5 2022-06, S6 2022-11, S7 2023-04, S8 2023-09, S9 2024-04, S10 2024-10
   - `%PERCENT%`;
   - MINDMG/MAXDMG fixed for all weapons.
 - **2026-07:** crash fixes.
+- **2026-09/10 (S14):** holy grail conditions ANYDISCOVERED, ALLDISCOVERED, ANYOWNED and ALLOWNED (first named DISCOVERED/OWNED).
 
 ---
 

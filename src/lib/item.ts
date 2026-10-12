@@ -28,7 +28,17 @@ export interface TestItem {
   suffixes: number[];
   automod: number;
   fools: boolean;
+  /** Holy grail (Season 14 Compendium): how many of the uniques/sets this could be are found. */
+  discovered: GrailState;
+  /** ...and how many are stored in the Compendium. */
+  owned: GrailState;
 }
+
+/** For an identified item there's one possibility, so "some" only happens on unidentified ones. */
+export type GrailState = "none" | "some" | "all";
+
+/** Only uniques and set items count towards the holy grail. */
+export const grailEligible = (it: TestItem) => it.quality === "unique" || it.quality === "set";
 
 export interface ViewContext {
   clvl: number;
@@ -63,6 +73,8 @@ export function makeItem(code: string, patch: Partial<TestItem> = {}): TestItem 
     suffixes: [],
     automod: 0,
     fools: false,
+    discovered: "none",
+    owned: "none",
     ...patch,
   };
 }

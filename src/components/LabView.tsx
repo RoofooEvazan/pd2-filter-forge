@@ -7,7 +7,7 @@ import { runFilter, type FilterResult } from "../lib/engine";
 import { referencedCodes } from "../lib/conditions";
 import { DATA, ITEM_BY_CODE, STAT_BY_ID, searchItems, lookupCode } from "../lib/data";
 import { CLASS_NAMES, DIFF_NAMES } from "../lib/spec";
-import { LOCATIONS, QUALITIES, makeItem, qualityLabel, type TestItem } from "../lib/item";
+import { LOCATIONS, QUALITIES, makeItem, qualityLabel, type GrailState, type TestItem } from "../lib/item";
 import { paletteCss } from "../lib/explain";
 import { cssColor } from "../lib/output";
 import { D2Label, MapIcons, Runs } from "./D2Label";
@@ -118,6 +118,7 @@ function ItemBuilder() {
           </label>
         ))}
       </div>
+      {(it.quality === "unique" || it.quality === "set") && <GrailFields it={it} set={set} />}
       <div className="row wrap">
         <Num label="Sockets" v={it.sockets} on={(v) => set({ sockets: v })} max={6} />
         <Num label="Item level" v={it.ilvl} on={(v) => set({ ilvl: v })} max={99} />
@@ -459,6 +460,30 @@ function NotifLine({ r }: { r: FilterResult }) {
           {run.text}
         </span>
       ))}
+    </div>
+  );
+}
+
+/** Season 14 holy grail state, for ANYDISCOVERED / ALLDISCOVERED / ANYOWNED / ALLOWNED. */
+function GrailFields({ it, set }: { it: TestItem; set: (p: Partial<TestItem>) => void }) {
+  // Identified, the item is one known unique/set: found or not. Unidentified, it could be several.
+  const opts = (some: string): [GrailState, string][] => (it.identified ? [["none", "No"], ["all", "Yes"]] : [["none", "None of them"], ["some", some], ["all", "All of them"]]);
+  const pick = (label: string, title: string, v: GrailState | undefined, on: (v: GrailState) => void, some: string) => (
+    <div className="field" title={title}>
+      <label>{label}</label>
+      <select className="select" value={it.identified && v === "some" ? "all" : (v ?? "none")} onChange={(e) => on(e.target.value as GrailState)}>
+        {opts(some).map(([k, l]) => (
+          <option key={k} value={k}>
+            {l}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+  return (
+    <div className="row wrap">
+      {pick(it.identified ? "Found before (grail)" : "Found before (of what it could be)", "Season 14 holy grail: ANYDISCOVERED / ALLDISCOVERED", it.discovered, (discovered) => set({ discovered, ...(discovered === "none" ? { owned: "none" } : {}) }), "Some of them")}
+      {pick(it.identified ? "In the Compendium" : "In the Compendium (of what it could be)", "Season 14 holy grail: ANYOWNED / ALLOWNED", it.owned, (owned) => set({ owned, ...(owned !== "none" && (it.discovered ?? "none") === "none" ? { discovered: owned } : {}) }), "Some of them")}
     </div>
   );
 }

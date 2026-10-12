@@ -11,7 +11,7 @@ import { COND_BY_CODE, PARAM_PREFIXES, type CondKeyword } from "./spec";
 import { lookupCode, type BaseItem } from "./data";
 import { expandAliases, type Definitions } from "./document";
 import { evalFormula, findIslands, tryCompile, FormulaRuntimeError, type FNode } from "./formula";
-import { gemInfo, has, paramValue, rawStat, runeNumber, statValue, valueOf, type TestItem, type ViewContext } from "./item";
+import { gemInfo, grailEligible, has, paramValue, rawStat, runeNumber, statValue, valueOf, type TestItem, type ViewContext } from "./item";
 import { bhLeaves, parseBh, type BhLeaf, type BhNode, type BhResult } from "./bh";
 
 export type Op = "=" | "<" | ">" | "~";
@@ -323,6 +323,13 @@ const FLAG_TEST: Record<string, (it: TestItem, b: BaseItem | undefined, ctx: Vie
   EXC: (_, b) => b?.tier === "x",
   ELT: (_, b) => b?.tier === "e",
   ID: (it) => it.identified,
+  // ProjectDiablo.dll's discovery state (BH DiscoveryStateCondition). Unidentified items ask about
+  // every unique/set they could be; other items have no grail entry, so these are false.
+  // (Items saved before Season 14 have no state: not found.)
+  ANYDISCOVERED: (it) => grailEligible(it) && (it.discovered ?? "none") !== "none",
+  ALLDISCOVERED: (it) => grailEligible(it) && it.discovered === "all",
+  ANYOWNED: (it) => grailEligible(it) && (it.owned ?? "none") !== "none",
+  ALLOWNED: (it) => grailEligible(it) && it.owned === "all",
   INF: (it) => it.quality === "inferior",
   SUP: (it) => it.quality === "superior",
   ETH: (it) => it.ethereal,

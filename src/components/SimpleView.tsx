@@ -28,9 +28,18 @@ import { D2Label, MapIcons } from "./D2Label";
 import { Icon } from "./icons";
 import { SoundGrid } from "./SoundGrid";
 import { UnidPanel } from "./UnidPanel";
+import { GrailExamples, GrailPanel } from "./GrailPanel";
+import { refreshGrail } from "../lib/grail";
 import { MysteryBanner, MysteryEditor, MysteryPresets } from "./Mystery";
 
 const CHANGES = "changes";
+const GRAIL = "grail";
+
+/** Save a Simple choice; choices about uniques and sets can change what the grail keeps showing. */
+function commitChoice(lines: ReturnType<typeof applyChoice>, id: string) {
+  const touchesGrail = /^(uni|set|item|white)\./.test(id) || CATALOG.some((c) => (c.id === "uniques" || c.id === "sets") && c.groups.some((g) => g.id === id));
+  actions.setLines(touchesGrail ? refreshGrail(lines) : lines);
+}
 /** Sidebar entries for mysteries are "mys:<id>"; "mys:new" is the preset picker. */
 const MYS = "mys:";
 
@@ -80,6 +89,7 @@ export function SimpleView() {
         }
       return out;
     }
+    if (cat === GRAIL) return [];
     if (cat === CHANGES) return [...choices.keys()].map(groupFor).filter((g): g is Group => !!g);
     if (mysId) return [...choices.entries()].filter(([, s]) => s.mystery === mysId).map(([id]) => groupFor(id)).filter((g): g is Group => !!g);
     return CATALOG.find((c) => c.id === cat)?.groups ?? [];
@@ -113,6 +123,11 @@ export function SimpleView() {
             <span className="grow">My changes</span>
             <span className="badge">{choices.size}</span>
           </button>
+          <button className={`simple-cat ${cat === GRAIL && !q ? "on" : ""}`} onClick={() => pick(GRAIL)} title="Season 14: tag uniques and sets you haven't found, hide the ones you have">
+            <Icon name="gift" size={16} />
+            <span className="grow">Holy grail</span>
+            <span className="badge">S14</span>
+          </button>
           <div className="divider" />
           <div className="section-title" style={{ padding: "0 10px" }}>Mystery drops</div>
           {mysteries.map((m) => {
@@ -133,7 +148,7 @@ export function SimpleView() {
 
         <section className="simple-grid-wrap">
           <div className="simple-head">
-            <h2>{q ? `Results for “${q}”` : cat === CHANGES ? "My changes" : mystery ? mystery.name : mysId ? "New mystery drop" : catInfo?.label}</h2>
+            <h2>{q ? `Results for “${q}”` : cat === GRAIL ? "Holy grail" : cat === CHANGES ? "My changes" : mystery ? mystery.name : mysId ? "New mystery drop" : catInfo?.label}</h2>
             <p>
               {q
                 ? "Catalog groups and single items. Click one to change how it looks."
@@ -141,6 +156,8 @@ export function SimpleView() {
                   ? "On the ground these items all show as the banner below — you only see what it really is once you pick it up. Click an item to change it, or the banner to edit it."
                   : mysId
                     ? "Pick a starting point on the right. You can change every part of it afterwards."
+                : cat === GRAIL
+                  ? "Season 14 tracks every unique and set item you've found. Tag the ones you still need, and stop seeing the ones you already have."
                 : cat === CHANGES
                   ? choices.size
                     ? "Everything you've customized. Click one to adjust or reset it."
@@ -149,6 +166,8 @@ export function SimpleView() {
             </p>
           </div>
           {!q && (cat === "uniques" || cat === "sets") && <UnidPanel compact />}
+          {!q && (cat === "uniques" || cat === "sets") && <GrailPanel compact />}
+          {!q && cat === GRAIL && <GrailExamples big />}
           {mysId && !mystery && !q && (
             <div className="mystery-howto">
               <div>
@@ -183,12 +202,14 @@ export function SimpleView() {
             {groups.map((g) => (
               <Tile key={g.id} a={a} g={g} ctx={ctx} on={sel === g.id} custom={choices.get(g.id)} mysteryName={mysteries.find((m) => m.id === choices.get(g.id)?.mystery)?.name} onClick={() => setSel(g.id)} />
             ))}
-            {groups.length === 0 && !(mysId && !mystery) && <div className="empty">{mystery ? "No items use this mystery yet. Open any item and pick it under “Mystery drop”." : "Nothing here."}</div>}
+            {groups.length === 0 && !(mysId && !mystery) && cat !== GRAIL && <div className="empty">{mystery ? "No items use this mystery yet. Open any item and pick it under “Mystery drop”." : "Nothing here."}</div>}
           </div>
         </section>
 
         <aside className="simple-editor">
-          {selected ? (
+          {cat === GRAIL && !q && !selected ? (
+            <GrailPanel examples={false} />
+          ) : selected ? (
             <StyleEditor key={selected.id} g={selected} onOpenMystery={(id) => pick(MYS + id)} onSwitch={(id) => setSel(id)} />
           ) : mystery ? (
             <MysteryEditor m={mystery} members={groups.length} onDeleted={() => pick(CHANGES)} />
@@ -343,9 +364,9 @@ function StyleEditor({ g, onOpenMystery, onSwitch }: { g: Group; onOpenMystery: 
   const set = (patch: Partial<SimpleStyle>) => {
     const next: SimpleStyle = { ...current, ...patch };
     for (const k of Object.keys(next) as (keyof SimpleStyle)[]) if (next[k] === undefined) delete next[k];
-    actions.setLines(applyChoice(getState().doc!.lines, g.id, next));
+    commitChoice(applyChoice(getState().doc!.lines, g.id, next), g.id);
   };
-  const reset = () => actions.setLines(applyChoice(getState().doc!.lines, g.id, null));
+  const reset = () => commitChoice(applyChoice(getState().doc!.lines, g.id, null), g.id);
   const r = preview(a, g, ctx);
   const fx = r.notify && !r.hidden ? r.notify.effects : null;
   const hideMode = current.hide === "always" ? "always" : typeof current.hide === "number" ? "from" : "show";
@@ -370,7 +391,7 @@ function StyleEditor({ g, onOpenMystery, onSwitch }: { g: Group; onOpenMystery: 
                   // Move any choice made so far to the new scope.
                   let lines = applyChoice(getState().doc!.lines, g.id, null);
                   if (Object.keys(current).length) lines = applyChoice(lines, next, current);
-                  actions.setLines(lines);
+                  commitChoice(lines, next);
                   onSwitch(next);
                 }}
               />

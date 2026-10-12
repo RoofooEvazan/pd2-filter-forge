@@ -1,5 +1,6 @@
 // Filter levels, aliases and formulas in one place.
 import { UnidPanel } from "./UnidPanel";
+import { GrailPanel } from "./GrailPanel";
 import { useMemo, useState } from "react";
 import { actions, getState, useStore } from "../state/store";
 import { useAnalysis } from "../state/analysis";
@@ -35,6 +36,13 @@ export function DefinitionsView() {
             <h3>Unidentified item names</h3>
           </div>
           <UnidPanel />
+        </section>
+        <section className="block">
+          <div className="block-head">
+            <Icon name="gift" />
+            <h3>Holy grail</h3>
+          </div>
+          <GrailPanel />
         </section>
         <section className="block">
           <div className="block-head">

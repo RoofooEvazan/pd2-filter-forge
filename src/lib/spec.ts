@@ -43,6 +43,7 @@ export const COND_CATEGORIES = [
   "Rarity",
   "Tier",
   "Properties",
+  "Holy grail",
   "Item groups",
   "Armor",
   "Weapons",
@@ -88,6 +89,12 @@ export const CONDITIONS: CondKeyword[] = [
   flag("Properties", "RW", "Runeword", "A completed runeword."),
   flag("Properties", "GEMMED", "Socketed with something", "Has at least one gem, rune or jewel in its sockets."),
   flag("Properties", "FOOLS", "Fool's mod", "Has the Fool's affix (AR and max damage per character level)."),
+
+  // Holy grail: the Season 14 Compendium (BH DiscoveryStateCondition, backed by ProjectDiablo.dll).
+  flag("Holy grail", "ANYDISCOVERED", "Found before (any)", "New in Season 14. A unique or set item you've already found (identified) for your grail. On an unidentified item: at least one of the uniques/sets it could be is found. Other items never match.", { mutable: true, example: "UNI !ANYDISCOVERED" }),
+  flag("Holy grail", "ALLDISCOVERED", "Found before (all)", "New in Season 14. Like ANYDISCOVERED, but on an unidentified item every unique/set it could be is found, so it can't be new. Use !ALLDISCOVERED to mark possible grail finds and ALLDISCOVERED to hide finished ones.", { mutable: true, example: "(UNI OR SET) ALLDISCOVERED" }),
+  flag("Holy grail", "ANYOWNED", "In the Compendium (any)", "New in Season 14. A unique or set item you have stored in the Compendium. On an unidentified item: at least one of the possibilities is stored.", { mutable: true }),
+  flag("Holy grail", "ALLOWNED", "In the Compendium (all)", "New in Season 14. Every unique/set this item could be is stored in the Compendium.", { mutable: true }),
 
   // Item groups
   flag("Item groups", "ARMOR", "Any armor", "All armor, class-restricted armor included."),

@@ -49,7 +49,7 @@ const one = (id: string, code: string, patch: Partial<TestItem> = {}, label?: st
 const RUNES = Array.from({ length: 33 }, (_, i) => {
   const code = `r${String(i + 1).padStart(2, "0")}`;
   const label = `${ITEM_BY_CODE.get(code)?.n.replace(" Rune", "")} (#${i + 1})`;
-  // Runes usually drop as the stackable code (r30s), so match both.
+  // Since Season 14 runes drop under their plain code; the old stacks (r30s) still exist, so match both.
   return ITEM_BY_CODE.has(`${code}s`) ? g(`rune.${code}`, label, `(${code} OR ${code}s)`, item(code)) : one(`rune.${code}`, code, {}, label);
 }).reverse();
 
@@ -424,6 +424,15 @@ export const UNID_TAG = "@ffu ";
 export const UNID_HEADER = "=================== UNIDENTIFIED ITEM NAMES ===================";
 export const UNID_BLURB = " Made in PD2 Filter Forge: real names for unidentified uniques and sets. They continue, so your rules below still style them.";
 
+/** The holy grail block sits between shop hunting and the Simple choices (see grail.ts). */
+export const GRAIL_TAG = "@ffg ";
+export const GRAIL_HEADER = "=================== HOLY GRAIL ===================";
+export const GRAIL_BLURB = " Made in PD2 Filter Forge (Season 14): tags uniques and sets you haven't found yet, and hides the ones you have. Does nothing on older game versions.";
+
+export function isGrailLine(l: Line) {
+  return (l.kind === "rule" && !!l.note?.startsWith(GRAIL_TAG)) || (l.kind === "comment" && (l.text === GRAIL_HEADER || l.text === GRAIL_BLURB || !!l.text?.startsWith(GRAIL_TAG)));
+}
+
 export function isUnidLine(l: Line) {
   return (l.kind === "rule" && !!l.note?.startsWith(UNID_TAG)) || (l.kind === "comment" && (l.text === UNID_HEADER || l.text === UNID_BLURB || !!l.text?.startsWith(UNID_TAG)));
 }
@@ -431,10 +440,10 @@ export function isUnidLine(l: Line) {
 /**
  * Where a managed block goes when it isn't in the file yet. The blocks keep a fixed order at the
  * top of the rules: unidentified names (they continue), then shop hunting (shops only), then the
- * Simple mode choices (they stop).
+ * holy grail (tags continue, hiding found items stops), then the Simple mode choices (they stop).
  */
-export function blockAnchor(kept: Line[], rank: 0 | 1 | 2): number {
-  const order = [isUnidLine, isShopLine, isManagedLine];
+export function blockAnchor(kept: Line[], rank: 0 | 1 | 2 | 3): number {
+  const order = [isUnidLine, isShopLine, isGrailLine, isManagedLine];
   let after = -1;
   for (let r = 0; r < rank; r++) after = Math.max(after, blockMask(kept, order[r]).lastIndexOf(true));
   if (after >= 0) return after + 1;
@@ -469,7 +478,7 @@ export function blockMask(lines: Line[], is: (l: Line) => boolean): boolean[] {
 }
 
 export function isManaged(l: Line) {
-  return isManagedLine(l) || isShopLine(l) || isUnidLine(l);
+  return isManagedLine(l) || isShopLine(l) || isUnidLine(l) || isGrailLine(l);
 }
 
 export function readChoices(lines: Line[]): Map<string, SimpleStyle> {
@@ -552,8 +561,8 @@ function writeBlock(lines: Line[], choices: Map<string, SimpleStyle>, mysteries:
   if (firstManaged >= 0) {
     at = lines.slice(0, firstManaged).filter((_, i) => !mask[i]).length;
   } else {
-    // Below the unidentified-names and shop blocks (shop rules must win in vendor windows).
-    at = blockAnchor(kept, 2);
+    // Below the unidentified-names, shop and grail blocks (shop rules must win in vendor windows).
+    at = blockAnchor(kept, 3);
   }
   const known = new Set(mysteries.map((m) => m.id));
   for (const [cid, s] of choices) {
