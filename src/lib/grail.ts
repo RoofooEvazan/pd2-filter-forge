@@ -1,7 +1,7 @@
 // Holy grail (Season 14 Compendium). Uniques and set items you haven't found yet get a tag after
 // their name (and optionally a drop alert); ones you've found are hidden, except the items your
-// filter shows specifically: the rule that decides how they look names their base, or they're a
-// Simple mode choice.
+// filter shows specifically: a rule that shows them names their base, or they're a Simple mode
+// choice.
 //
 // Built on BH's ANYDISCOVERED / ALLDISCOVERED. An unidentified item asks about every unique/set it
 // could be, so "!ALLDISCOVERED" marks a possible new find and "ALLDISCOVERED" means nothing new.
@@ -12,10 +12,12 @@
 // "UNI !(!ALLDISCOVERED)" (= ALLDISCOVERED). A plain "UNI ALLDISCOVERED" would hide every unique.
 import { makeBlank, makeComment, makeRule, type Line } from "./document";
 import { DATA, ITEM_BY_CODE } from "./data";
-import { compileDoc, runFilter } from "./engine";
+import { compileDoc } from "./engine";
+import { evalTree } from "./conditions";
+import type { BhNode } from "./bh";
 import { DEFAULT_CTX, makeItem, type GrailState } from "./item";
-import { composeOutput, type Effects } from "./output";
-import { GRAIL_BLURB, GRAIL_HEADER, GRAIL_TAG, blockAnchor, blockMask, isGrailLine, isManaged } from "./simple";
+import { composeOutput, splitOutput, type Effects } from "./output";
+import { GRAIL_BLURB, GRAIL_HEADER, GRAIL_TAG, TOWN_MAPS, blockAnchor, blockMask, isGrailLine, isManaged } from "./simple";
 
 export interface GrailOptions {
   uniques: boolean;
@@ -36,7 +38,14 @@ export interface GrailOptions {
   keepExtra: string[];
   /** Items the filter shows specifically but that should be hidden once found anyway. */
   hideAnyway: string[];
+  /** Still show found items when they drop in town, with this warning in the tooltip (off when unset). */
+  town?: string;
 }
+
+/** Default town warning (PD2 keywords allowed). */
+export const GRAIL_TOWN_WARNING = "%WHITE%Already in your grail. Outside town it is %RED%HIDDEN%WHITE% at this filter level";
+/** The town areas, by MAPID: Rogue Encampment, Lut Gholein, Kurast Docks, Pandemonium Fortress, Harrogath. */
+export const TOWN_COND = `(${TOWN_MAPS.map((n) => `MAPID=${n}`).join(" OR ")})`;
 
 export const DEFAULT_GRAIL: GrailOptions = { uniques: true, sets: true, mark: true, markText: " [NEW]", markColor: "PURPLE", unid: "any", hide: "always", keepExtra: [], hideAnyway: [] };
 
@@ -56,30 +65,53 @@ function namesByCode(rows: { n: string; c: string }[]): Map<string, string[]> {
 export const GRAIL_BASES: Record<Q, Map<string, string[]>> = { uni: namesByCode(DATA.uniques), set: namesByCode(DATA.sets) };
 
 const plain = (s: string) => s.replace(/\/\//g, "/").replace(/%/g, "%PERCENT%").replace(/\{/g, "%LBRACE%").replace(/\}/g, "%RBRACE%");
-const wordRe = (code: string) => new RegExp(`(^|[\\s(!])${code}(?=$|[\\s)!])`);
+
+/** Item codes a condition names (aliases expanded), outside any "!". */
+function namedCodes(n: BhNode | null, out = new Set<string>()): Set<string> {
+  if (!n) return out;
+  if (n.t === "leaf") {
+    if (n.leaf.cls === "item" && n.leaf.code) out.add(n.leaf.code);
+  } else if (n.t !== "not") {
+    namedCodes(n.a, out);
+    namedCodes(n.b, out);
+  }
+  return out;
+}
 
 /**
- * Items the filter shows specifically: once found, they still show. Checked on the filter without
- * this block, for each base in both identified and unidentified form.
+ * Items the filter shows specifically: once found, they still show. A base counts when a rule that
+ * shows items (and stops there) names it, directly or through an alias, and can match a unique or
+ * set version of it, identified or not, normal or ethereal, on some level. Simple mode choices that
+ * show an item count too. Each rule is checked on its own, so this stays fast on big filters.
  */
 export function specificKeeps(lines: Line[]): string[] {
   const rest = lines.filter((l) => !isGrailLine(l));
   const c = compileDoc({ lines: rest, eol: "\n" });
-  const out: string[] = [];
-  for (const q of ["uni", "set"] as const) {
-    for (const code of GRAIL_BASES[q].keys()) {
-      const specific = [false, true].some((identified) => {
-        const r = runFilter(c, makeItem(code, { quality: q === "uni" ? "unique" : "set", identified, discovered: "all", owned: "all" }), { ...DEFAULT_CTX, filtlvl: 1, location: "GROUND" });
-        if (r.hidden || r.final == null) return false;
-        const line = rest[r.final];
-        // A Simple mode choice is always specific; otherwise the deciding rule has to name the base.
-        if (line?.note?.startsWith("@ff ")) return true;
-        return !!line && !isManaged(line) && wordRe(code).test(line.key ?? "");
-      });
-      if (specific) out.push(`${q}.${code}`);
+  const levels = Array.from({ length: Math.max(1, c.defs.levels.length) }, (_, i) => i + 1);
+  const kept = new Set<string>();
+  for (const r of c.rules) {
+    if (r.error) continue;
+    const line = rest[r.index];
+    const simple = !!line.note?.startsWith("@ff ");
+    if ((isManaged(line) && !simple) || (r.effects.cont && !simple)) continue;
+    // A rule whose name part is empty hides what it matches.
+    const name = splitOutput(r.out).name;
+    if (!/%(NAME|BASENAME)%/i.test(name) && !name.replace(/%[^%]*%/g, "").trim()) continue;
+    for (const code of namedCodes(r.bh.tree)) {
+      for (const q of ["uni", "set"] as const) {
+        const key = `${q}.${code}`;
+        if (kept.has(key) || !GRAIL_BASES[q].has(code)) continue;
+        const hit = [false, true].some((identified) =>
+          [false, true].some((ethereal) => {
+            const item = makeItem(code, { quality: q === "uni" ? "unique" : "set", identified, ethereal, discovered: "all", owned: "all" });
+            return levels.some((filtlvl) => evalTree(r.tree, { item, ctx: { ...DEFAULT_CTX, filtlvl, location: "GROUND" }, defs: c.defs }));
+          }),
+        );
+        if (hit) kept.add(key);
+      }
     }
   }
-  return out;
+  return [...kept].sort();
 }
 
 /** What stays shown after it's found. */
@@ -102,6 +134,8 @@ function rulesFor(q: Q, o: GrailOptions, keep: string[]): Line[] {
     const codes = keep.filter((k) => k.startsWith(`${q}.`)).map((k) => k.slice(q.length + 1));
     const level = typeof o.hide === "number" ? ` FILTLVL>${Math.max(0, o.hide - 1)}` : "";
     const except = codes.length ? ` !(${codes.join(" OR ")})` : "";
+    // In town they still show (as styled so far), with a warning; this rule stops before the hide.
+    if (o.town) out.push(makeRule(`${flag} !(!ALLDISCOVERED)${level}${except} ${TOWN_COND}`, `%NAME%{${o.town}%CL%%NAME%}`, `${GRAIL_TAG}${q} town`));
     out.push(makeRule(`${flag} !(!ALLDISCOVERED)${level}${except}`, "", `${GRAIL_TAG}${q} found`));
   }
   return out;

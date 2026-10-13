@@ -4,7 +4,7 @@ import { makeRule, parseFilter, type Line } from "./document";
 import { compileDoc, runFilter } from "./engine";
 import { DEFAULT_CTX, makeItem, type GrailState } from "./item";
 import { lintDoc } from "./lint";
-import { DEFAULT_GRAIL, readGrail, refreshGrail, writeGrail, writtenKeeps } from "./grail";
+import { DEFAULT_GRAIL, GRAIL_TOWN_WARNING, readGrail, refreshGrail, specificKeeps, writeGrail, writtenKeeps } from "./grail";
 import { applyChoice } from "./simple";
 import { DEFAULT_UNID, writeUnid } from "./unid";
 import { ITEM_BY_CODE } from "./data";
@@ -103,5 +103,32 @@ describe("grail block placement", () => {
       expect(o.lastIndexOf("@ffu")).toBeLessThan(o.indexOf("@ffg"));
       expect(o.lastIndexOf("@ffg")).toBeLessThan(o.indexOf("@ff"));
     }
+  });
+});
+
+describe("what the filter shows specifically", () => {
+  it("counts bases named through aliases, and ignores tag rules, hide rules and other qualities", () => {
+    const src = [
+      "Alias[GOODUNI]: ((uap OR ci3) UNI !ID)",
+      "ItemDisplay[GOODUNI]: %GOLD%*** %NAME% ***",
+      "ItemDisplay[UNI rin]: %NAME% [ring]%CONTINUE%",
+      "ItemDisplay[UNI amu]:",
+      "ItemDisplay[(lrg OR 7cr) NMAG]: %WHITE%%NAME%",
+      "ItemDisplay[UNI]: %GOLD%%NAME%",
+    ].join("\n");
+    const keep = specificKeeps(parseFilter(src).lines);
+    expect(keep).toEqual(["uni.ci3", "uni.uap"]);
+  });
+});
+
+describe("found items in town", () => {
+  it("still show in town with the warning, and stay hidden outside", () => {
+    const lines = writeGrail(parseFilter("ItemDisplay[UNI]: %GOLD%%NAME%\n").lines, { ...DEFAULT_GRAIL, town: GRAIL_TOWN_WARNING });
+    const c = compileDoc({ lines, eol: "\n" });
+    const ring = makeItem("rin", { quality: "unique", identified: false, discovered: "all" });
+    const inTown = runFilter(c, ring, { ...DEFAULT_CTX, filtlvl: 1, mapid: 1 });
+    expect(inTown.hidden).toBe(false);
+    expect(inTown.display.desc.flat().map((x) => x.text).join("")).toContain("HIDDEN");
+    expect(runFilter(c, ring, { ...DEFAULT_CTX, filtlvl: 1, mapid: 108 }).hidden).toBe(true);
   });
 });

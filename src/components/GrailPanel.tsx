@@ -9,7 +9,7 @@ import { ITEM_BY_CODE, searchItems } from "../lib/data";
 import { COLOR_CSS } from "../lib/spec";
 import { paletteCss } from "../lib/explain";
 import { ICON_COLORS, ICON_SIZES, TEXT_COLORS } from "../lib/simple";
-import { DEFAULT_GRAIL, GRAIL_BASES, grailStats, readGrail, specificKeeps, writeGrail, writtenKeeps, type GrailOptions } from "../lib/grail";
+import { DEFAULT_GRAIL, GRAIL_BASES, GRAIL_TOWN_WARNING, grailStats, readGrail, specificKeeps, writeGrail, writtenKeeps, type GrailOptions } from "../lib/grail";
 import { D2Label } from "./D2Label";
 import { Icon } from "./icons";
 import { SoundGrid } from "./SoundGrid";
@@ -186,6 +186,12 @@ export function GrailPanel({ compact, examples = true }: { compact?: boolean; ex
                   </button>
                 ))}
               </div>
+            )}
+            {o.hide !== "off" && (
+              <label className="row small" title="Picked-up items always show; this is about drops on the ground in town">
+                <button className={`switch sm ${o.town ? "on" : ""}`} disabled={!on} onClick={() => set({ town: o.town ? undefined : GRAIL_TOWN_WARNING })} />
+                Still show them when they drop in town, with a warning that they're hidden outside town
+              </label>
             )}
             {o.hide !== "off" && (
               <div className="col" style={{ gap: 6 }}>

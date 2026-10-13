@@ -413,7 +413,12 @@ export interface EvalEnv {
   ctx: ViewContext;
   defs: Definitions;
   formulaCache?: Map<string, FNode | null>;
+  /** Per-item lookups, filled on first use (an env is for one item). */
+  base?: BaseItem | null;
+  code4?: string;
 }
+
+const baseOf = (env: EvalEnv) => (env.base === undefined ? (env.base = lookupCode(env.item.code) ?? null) : env.base) ?? undefined;
 
 function compiled(env: EvalEnv, src: string): FNode | null {
   const cache = (env.formulaCache ??= new Map());
@@ -492,13 +497,14 @@ function addPartValue(part: { name: string; params: number[] }, env: EvalEnv, is
 
 export function evalLeaf(leaf: Leaf, env: EvalEnv): boolean {
   const { item, ctx } = env;
-  const base = lookupCode(item.code);
+  if (leaf.cls === "item") {
+    // Exact 4-character compare: "r33" does not match the stacked "r33s".
+    return (env.code4 ??= item.code.slice(0, 4)) === (leaf.code ?? leaf.key.slice(0, 4));
+  }
+  const base = baseOf(env);
   switch (leaf.cls) {
     case "flag":
       return FLAG_TEST[leaf.kw!.code]?.(item, base, ctx) ?? false;
-    case "item":
-      // Exact 4-character compare: "r33" does not match the stacked "r33s".
-      return item.code.slice(0, 4) === (leaf.code ?? leaf.key.slice(0, 4));
     case "value": {
       const code = leaf.kw!.code;
       if (code === "PREFIX" || code === "SUFFIX") {

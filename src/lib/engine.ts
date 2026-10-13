@@ -23,7 +23,36 @@ export interface CompiledRule {
   action: Action;
   effects: Effects;
   notifies: boolean;
+  /** Item codes the rule can match at all (from its conditions), or undefined for any item. */
+  gate?: Set<string>;
 }
+
+/**
+ * The item codes a condition can possibly match: an AND needs every part, an OR any part. Used to
+ * skip rules quickly; evaluating them would give false for any other code anyway.
+ */
+const gateCache = new WeakMap<object, Set<string> | null>();
+function codeGate(n: Node | null): Set<string> | null {
+  if (!n) return null;
+  const hit = gateCache.get(n);
+  if (hit !== undefined) return hit;
+  let g: Set<string> | null = null;
+  if (n.t === "leaf") g = n.leaf.cls === "item" ? new Set([n.leaf.code ?? n.leaf.key.slice(0, 4)]) : null;
+  else if (n.t === "and") {
+    for (const c of n.items) {
+      const x: Set<string> | null = codeGate(c);
+      if (!x) continue;
+      const prev: Set<string> | null = g;
+      g = prev ? new Set<string>(Array.from<string>(prev).filter((k) => x.has(k))) : x;
+    }
+  } else if (n.t === "or") {
+    const parts = n.items.map(codeGate);
+    g = parts.every((x) => x) ? new Set(parts.flatMap((x) => [...x!])) : null;
+  }
+  gateCache.set(n, g);
+  return g;
+}
+const passes = (r: CompiledRule, code: string) => !r.gate || r.gate.has(code.slice(0, 4));
 
 export interface Compiled {
   defs: Definitions;
@@ -60,7 +89,8 @@ export function compileDoc(doc: FilterDoc): Compiled {
     if (!c) condCache.set(key, (c = compileCondition(key, defs)));
     const out = l.value ?? "";
     const action = buildAction(out, defs);
-    rules.push({ index, id: l.id, tree: c.tree, error: c.error, bh: c.bh, out, action, effects: action.effects, notifies: action.isMap });
+    const gate = codeGate(c.tree) ?? undefined;
+    rules.push({ index, id: l.id, tree: c.tree, error: c.error, bh: c.bh, out, action, effects: action.effects, notifies: action.isMap, ...(gate ? { gate } : {}) });
   });
   return { defs, rules };
 }
@@ -80,6 +110,13 @@ export interface FilterResult {
 
 export function runFilter(c: Compiled, item: TestItem, ctx: ViewContext): FilterResult {
   const env: EvalEnv = { item, ctx, defs: c.defs };
+  // Each rule's conditions are checked at most once; the notification passes reuse the answer.
+  const seen = new Map<CompiledRule, boolean>();
+  const matches = (r: CompiledRule) => {
+    let m = seen.get(r);
+    if (m === undefined) seen.set(r, (m = !r.error && passes(r, item.code) && evalTree(r.tree, env)));
+    return m;
+  };
   const original = defaultNameMarked(item);
   let prev = { name: original, desc: "" };
   const matched: number[] = [];
@@ -87,8 +124,7 @@ export function runFilter(c: Compiled, item: TestItem, ctx: ViewContext): Filter
   const nlUsed = { n: 0 };
 
   for (const r of c.rules) {
-    if (r.error) continue;
-    if (!evalTree(r.tree, env)) continue;
+    if (!matches(r)) continue;
     matched.push(r.index);
     const name = resolveOutput(r.action, "name", prev, env, nlUsed);
     const desc = r.action.desc != null ? resolveOutput(r.action, "desc", prev, env) : "";
@@ -111,8 +147,7 @@ export function runFilter(c: Compiled, item: TestItem, ctx: ViewContext): Filter
   let notify: FilterResult["notify"];
   const tierSkipped: number[] = [];
   for (const r of c.rules) {
-    if (!r.notifies || r.error) continue;
-    if (!evalTree(r.tree, env)) continue;
+    if (!r.notifies || !matches(r)) continue;
     const tier = r.effects.tier;
     if (ctx.filtlvl !== 0 && tier != null && tier < ctx.filtlvl) {
       tierSkipped.push(r.index);
@@ -123,7 +158,7 @@ export function runFilter(c: Compiled, item: TestItem, ctx: ViewContext): Filter
   }
   if (notify) {
     for (const r of c.rules) {
-      if (!r.notifies || r.error || !evalTree(r.tree, env)) continue;
+      if (!r.notifies || !matches(r)) continue;
       notify.icons.push({ index: r.index, effects: r.effects });
       if (!r.effects.cont) break;
     }

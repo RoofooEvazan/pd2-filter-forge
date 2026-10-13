@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.3.8 — 2026-10-13
+
+### Holy grail
+
+- **Found items in town:** a new option keeps showing found uniques and sets when they drop in town, with a tooltip warning that they're hidden outside town at this filter level.
+
+### Fixes
+
+- **Holy grail on big filters:** working out which items your filter shows specifically took up to ~45 seconds on filters with thousands of rules, freezing the app after every edit. It now takes about a second.
+- **Holy grail keep list:** items a filter names through aliases (like `OSUNI1`) now count as shown specifically, as do their identified and ethereal versions.
+- **Faster checks:** the engine skips rules that can't match an item's code, and checks each rule only once per item.
+
 ## 0.3.7 — 2026-10-12
 
 ### Holy grail (Season 14)
