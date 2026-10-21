@@ -4,7 +4,7 @@ import { makeRule, parseFilter, type Line } from "./document";
 import { compileDoc, runFilter } from "./engine";
 import { DEFAULT_CTX, makeItem, type GrailState } from "./item";
 import { lintDoc } from "./lint";
-import { DEFAULT_GRAIL, GRAIL_TOWN_WARNING, readGrail, refreshGrail, specificKeeps, writeGrail, writtenKeeps } from "./grail";
+import { DEFAULT_GRAIL, GRAIL_TOWN_WARNING, grailRuleTexts, writtenGrailRules, readGrail, refreshGrail, specificKeeps, writeGrail, writtenKeeps } from "./grail";
 import { applyChoice } from "./simple";
 import { DEFAULT_UNID, writeUnid } from "./unid";
 import { ITEM_BY_CODE } from "./data";
@@ -84,7 +84,7 @@ describe("grail block on game versions before Season 14", () => {
     // Older BH drops the unknown word; what's left must leave a lone "!" so the rule is skipped.
     const lines = writeGrail(parseFilter("ItemDisplay[UNI]: %GOLD%%NAME%\n").lines, DEFAULT_GRAIL);
     const rules = lines.filter((l) => l.kind === "rule" && l.note?.startsWith("@ffg"));
-    expect(rules.length).toBe(4);
+    expect(rules.length).toBeGreaterThanOrEqual(4);
     for (const r of rules) {
       const old = (r.key ?? "").replace(/\b(ANY|ALL)(DISCOVERED|OWNED)\b/g, "NOTAKEYWORD");
       expect(lintDoc(parseFilter(`ItemDisplay[${old}]: x`)).map((i) => i.check)).toContain("cond.never");
@@ -130,5 +130,53 @@ describe("found items in town", () => {
     expect(inTown.hidden).toBe(false);
     expect(inTown.display.desc.flat().map((x) => x.text).join("")).toContain("HIDDEN");
     expect(runFilter(c, ring, { ...DEFAULT_CTX, filtlvl: 1, mapid: 108 }).hidden).toBe(true);
+  });
+});
+
+describe("variants of one item", () => {
+  it("count as found once any of them is (8 Rainbow Facets, 2 Arm of King Leoric)", () => {
+    const lines = writeGrail(parseFilter("ItemDisplay[UNI]: %GOLD%%NAME%\n").lines, { ...DEFAULT_GRAIL, keepExtra: [] });
+    const c = compileDoc({ lines, eol: "\n" });
+    const show = (code: string, discovered: GrailState) => runFilter(c, makeItem(code, { quality: "unique", identified: false, discovered }), { ...DEFAULT_CTX, filtlvl: 1 });
+    expect(text(show("jew", "none"))).toBe("Jewel [NEW]");
+    expect(show("jew", "some").hidden).toBe(true);
+    expect(show("9bw", "some").hidden).toBe(true);
+    // A ring could be many different uniques: still a possible new find.
+    expect(text(show("rin", "some"))).toBe("Ring [NEW]");
+    expect(lintDoc({ lines, eol: "\n" }).filter((i) => i.sev !== "info")).toEqual([]);
+  });
+});
+
+describe("outdated grail blocks", () => {
+  it("are spotted by comparing with what this version writes", () => {
+    const lines = writeGrail(parseFilter("ItemDisplay[UNI]: %GOLD%%NAME%\n").lines, DEFAULT_GRAIL);
+    const o = readGrail(lines)!;
+    const keep = writtenKeeps(lines);
+    expect(grailRuleTexts(o, keep)).toEqual(writtenGrailRules(lines));
+    // A block from 0.3.8 had a single "UNI !ALLDISCOVERED" tag rule.
+    const old = lines.map((l) => (l.note?.startsWith("@ffg uni new") && !l.note.includes("variants") ? { ...l, raw: "ItemDisplay[UNI !ALLDISCOVERED]: x //@ffg uni new" } : l));
+    expect(grailRuleTexts(o, keep)).not.toEqual(writtenGrailRules(old));
+  });
+});
+
+describe("hiding found items outside town only", () => {
+  it("leaves town to the filter's own rules", () => {
+    const lines = writeGrail(parseFilter("ItemDisplay[UNI]: %GOLD%%NAME%\n").lines, { ...DEFAULT_GRAIL, outsideTownOnly: true });
+    const c = compileDoc({ lines, eol: "\n" });
+    const ring = makeItem("rin", { quality: "unique", identified: false, discovered: "all" });
+    expect(text(runFilter(c, ring, { ...DEFAULT_CTX, filtlvl: 1, mapid: 1 }))).toBe("Ring");
+    expect(runFilter(c, ring, { ...DEFAULT_CTX, filtlvl: 1, mapid: 108 }).hidden).toBe(true);
+  });
+});
+
+describe("hiding found items only while unidentified", () => {
+  it("always shows identified uniques and set items", () => {
+    const lines = writeGrail(parseFilter("ItemDisplay[UNI]: %GOLD%%NAME%\nItemDisplay[SET]: %GREEN%%NAME%\n").lines, { ...DEFAULT_GRAIL, unidOnly: true });
+    const c = compileDoc({ lines, eol: "\n" });
+    const ctx = { ...DEFAULT_CTX, filtlvl: 1 };
+    expect(runFilter(c, makeItem("rin", { quality: "unique", identified: true, discovered: "all", title: "Bul-Kathos' Wedding Band" }), ctx).hidden).toBe(false);
+    expect(runFilter(c, makeItem("lrg", { quality: "set", identified: true, discovered: "all", title: "Sigon's Guard" }), ctx).hidden).toBe(false);
+    expect(runFilter(c, makeItem("rin", { quality: "unique", identified: false, discovered: "all" }), ctx).hidden).toBe(true);
+    expect(runFilter(c, makeItem("jew", { quality: "unique", identified: false, discovered: "some" }), ctx).hidden).toBe(true);
   });
 });

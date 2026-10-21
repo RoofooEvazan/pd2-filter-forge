@@ -9,7 +9,7 @@ import { ITEM_BY_CODE, searchItems } from "../lib/data";
 import { COLOR_CSS } from "../lib/spec";
 import { paletteCss } from "../lib/explain";
 import { ICON_COLORS, ICON_SIZES, TEXT_COLORS } from "../lib/simple";
-import { DEFAULT_GRAIL, GRAIL_BASES, GRAIL_TOWN_WARNING, grailStats, readGrail, specificKeeps, writeGrail, writtenKeeps, type GrailOptions } from "../lib/grail";
+import { DEFAULT_GRAIL, GRAIL_BASES, GRAIL_TOWN_WARNING, grailStats, grailRuleTexts, readGrail, specificKeeps, writeGrail, writtenGrailRules, writtenKeeps, type GrailOptions } from "../lib/grail";
 import { D2Label } from "./D2Label";
 import { Icon } from "./icons";
 import { SoundGrid } from "./SoundGrid";
@@ -69,7 +69,13 @@ export function GrailPanel({ compact, examples = true }: { compact?: boolean; ex
   const auto = useMemo(() => (on && o.hide !== "off" ? specificKeeps(a.lines) : []), [a.lines, on, o.hide]);
   const written = useMemo(() => writtenKeeps(a.lines), [a.lines]);
   const want = useMemo(() => [...new Set([...auto.filter((k) => !o.hideAnyway.includes(k)), ...o.keepExtra])].sort(), [auto, o.hideAnyway, o.keepExtra]);
-  const stale = on && o.hide !== "off" && want.join() !== written.join();
+  const keepStale = on && o.hide !== "off" && want.join() !== written.join();
+  // A block written by an older Filter Forge (or edited by hand) differs from what this version writes.
+  const versionStale = useMemo(
+    () => on && !keepStale && grailRuleTexts(o, o.hide !== "off" ? written : []).join("\n") !== writtenGrailRules(a.lines).join("\n"),
+    [on, keepStale, o, written, a.lines],
+  );
+  const stale = keepStale || versionStale;
   const hits = find.trim().length >= 2 ? searchItems(find.trim(), 12).filter((h) => h.kind === "unique" || h.kind === "set") : [];
 
   const hideMode = o.hide === "off" ? "off" : o.hide === "always" ? "always" : "from";
@@ -95,7 +101,7 @@ export function GrailPanel({ compact, examples = true }: { compact?: boolean; ex
           {stale && (
             <div className="row grail-stale">
               <Icon name="info" size={15} />
-              <span className="grow small">Your filter changed, so the list of items that stay shown is out of date.</span>
+              <span className="grow small">{keepStale ? "Your filter changed, so the list of items that stay shown is out of date." : "This grail block was written by an older version of Filter Forge. Update it to get the latest fixes."}</span>
               <button className="btn sm primary" onClick={() => save(o)}>
                 Update
               </button>
@@ -189,8 +195,20 @@ export function GrailPanel({ compact, examples = true }: { compact?: boolean; ex
             )}
             {o.hide !== "off" && (
               <label className="row small" title="Picked-up items always show; this is about drops on the ground in town">
-                <button className={`switch sm ${o.town ? "on" : ""}`} disabled={!on} onClick={() => set({ town: o.town ? undefined : GRAIL_TOWN_WARNING })} />
+                <button className={`switch sm ${o.town ? "on" : ""}`} disabled={!on} onClick={() => set({ town: o.town ? undefined : GRAIL_TOWN_WARNING, outsideTownOnly: undefined })} />
                 Still show them when they drop in town, with a warning that they're hidden outside town
+              </label>
+            )}
+            {o.hide !== "off" && (
+              <label className="row small" title="In town your filter's own rules decide how they look, like before the grail">
+                <button className={`switch sm ${o.outsideTownOnly ? "on" : ""}`} disabled={!on} onClick={() => set({ outsideTownOnly: !o.outsideTownOnly, town: undefined })} />
+                Only hide them outside town (in town they show as your filter normally shows them)
+              </label>
+            )}
+            {o.hide !== "off" && (
+              <label className="row small" title="Identified uniques and set items always show; only unidentified drops of items you've found are hidden">
+                <button className={`switch sm ${o.unidOnly ? "on" : ""}`} disabled={!on} onClick={() => set({ unidOnly: !o.unidOnly })} />
+                Only hide them while unidentified (identified ones always show)
               </label>
             )}
             {o.hide !== "off" && (

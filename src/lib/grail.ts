@@ -40,6 +40,10 @@ export interface GrailOptions {
   hideAnyway: string[];
   /** Still show found items when they drop in town, with this warning in the tooltip (off when unset). */
   town?: string;
+  /** Hide found items outside town only: in town the filter's own rules show them as usual. */
+  outsideTownOnly?: boolean;
+  /** Hide found items only while they're unidentified: identified uniques and sets always show. */
+  unidOnly?: boolean;
 }
 
 /** Default town warning (PD2 keywords allowed). */
@@ -63,6 +67,18 @@ function namesByCode(rows: { n: string; c: string }[]): Map<string, string[]> {
   return m;
 }
 export const GRAIL_BASES: Record<Q, Map<string, string[]>> = { uni: namesByCode(DATA.uniques), set: namesByCode(DATA.sets) };
+
+/**
+ * Bases whose uniques/sets are all variants of one item (8 Rainbow Facets, 2 Arm of King Leoric…).
+ * Unidentified, the game reports each variant separately, but finding any one of them counts.
+ */
+export const SAME_NAME_BASES: Record<Q, string[]> = Object.fromEntries(
+  (["uni", "set"] as const).map((q) => {
+    const rows = q === "uni" ? DATA.uniques : DATA.sets;
+    const codes = [...GRAIL_BASES[q].keys()].filter((c) => GRAIL_BASES[q].get(c)!.length === 1 && rows.filter((r) => r.c === c).length > 1);
+    return [q, codes.sort()];
+  }),
+) as Record<Q, string[]>;
 
 const plain = (s: string) => s.replace(/\/\//g, "/").replace(/%/g, "%PERCENT%").replace(/\{/g, "%LBRACE%").replace(/\}/g, "%RBRACE%");
 
@@ -124,21 +140,44 @@ export function keepList(lines: Line[], o: GrailOptions): string[] {
 function rulesFor(q: Q, o: GrailOptions, keep: string[]): Line[] {
   const out: Line[] = [];
   const flag = FLAG[q];
+  const vs = SAME_NAME_BASES[q];
+  const variants = vs.length ? (vs.length === 1 ? vs[0] : `(${vs.join(" OR ")})`) : "";
   if (o.mark) {
     const effects: Effects = { cont: true, ...(o.icon ? { [o.icon.size]: o.icon.hex } : {}), ...(o.sound != null ? { sound: o.sound } : {}) };
     // After the name, so the filter's own rules below can still color the name itself.
     const name = `%NAME%${o.markText ? `%${o.markColor}%${plain(o.markText)}` : ""}`;
-    out.push(makeRule(`${flag} ${o.unid === "any" ? "!ALLDISCOVERED" : "!ANYDISCOVERED"}`, composeOutput({ name, desc: null, effects }), `${GRAIL_TAG}${q} new`));
+    const output = composeOutput({ name, desc: null, effects });
+    if (o.unid === "any" && variants) {
+      // The grail word goes last: older versions drop it and the lone "!" left over disables the rule.
+      out.push(makeRule(`${flag} !(${variants} !ID) !ALLDISCOVERED`, output, `${GRAIL_TAG}${q} new`));
+      out.push(makeRule(`${flag} ${variants} !ID !ANYDISCOVERED`, output, `${GRAIL_TAG}${q} new variants`));
+    } else out.push(makeRule(`${flag} ${o.unid === "any" ? "!ALLDISCOVERED" : "!ANYDISCOVERED"}`, output, `${GRAIL_TAG}${q} new`));
   }
   if (o.hide !== "off") {
     const codes = keep.filter((k) => k.startsWith(`${q}.`)).map((k) => k.slice(q.length + 1));
-    const level = typeof o.hide === "number" ? ` FILTLVL>${Math.max(0, o.hide - 1)}` : "";
+    const level = (typeof o.hide === "number" ? ` FILTLVL>${Math.max(0, o.hide - 1)}` : "") + (o.outsideTownOnly ? ` !${TOWN_COND}` : "") + (o.unidOnly ? " !ID" : "");
     const except = codes.length ? ` !(${codes.join(" OR ")})` : "";
     // In town they still show (as styled so far), with a warning; this rule stops before the hide.
-    if (o.town) out.push(makeRule(`${flag} !(!ALLDISCOVERED)${level}${except} ${TOWN_COND}`, `%NAME%{${o.town}%CL%%NAME%}`, `${GRAIL_TAG}${q} town`));
+    // Variants of one item: any of them found counts as found.
+    const same = variants ? ` ${variants}${o.unidOnly ? "" : " !ID"}` : "";
+    if (o.town) {
+      out.push(makeRule(`${flag} !(!ALLDISCOVERED)${level}${except} ${TOWN_COND}`, `%NAME%{${o.town}%CL%%NAME%}`, `${GRAIL_TAG}${q} town`));
+      if (same) out.push(makeRule(`${flag} !(!ANYDISCOVERED)${same}${level}${except} ${TOWN_COND}`, `%NAME%{${o.town}%CL%%NAME%}`, `${GRAIL_TAG}${q} town variants`));
+    }
     out.push(makeRule(`${flag} !(!ALLDISCOVERED)${level}${except}`, "", `${GRAIL_TAG}${q} found`));
+    if (same) out.push(makeRule(`${flag} !(!ANYDISCOVERED)${same}${level}${except}`, "", `${GRAIL_TAG}${q} variants`));
   }
   return out;
+}
+
+/** The rule lines this version writes for these options and keep list (to spot an outdated block). */
+export function grailRuleTexts(o: GrailOptions, keep: string[]): string[] {
+  return [...(o.uniques ? rulesFor("uni", o, keep) : []), ...(o.sets ? rulesFor("set", o, keep) : [])].map((l) => l.raw);
+}
+
+/** The block's rule lines as they are in the file. */
+export function writtenGrailRules(lines: Line[]): string[] {
+  return lines.filter((l) => l.kind === "rule" && isGrailLine(l)).map((l) => l.raw);
 }
 
 export function readGrail(lines: Line[]): GrailOptions | null {

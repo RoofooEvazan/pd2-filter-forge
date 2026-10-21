@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.9 — 2026-10-21
+
+### Holy grail
+
+- **Variants of one item count as found together.** An unidentified Rainbow Facet could be any of 8 versions, and it was tagged until all 8 were found. Now any one counts, for Rainbow Facet, Arm of King Leoric, Cyclopean Roar and Akarat's Devotion. Rings, amulets and other bases with different uniques still need each one.
+- **New option: only hide found items outside town.** In town your filter's own rules show them as usual.
+- **New option: only hide found items while unidentified.** Identified uniques and set items always show.
+- **Older grail blocks are spotted.** If a filter's grail block was written by an older version of Filter Forge, the grail panel says so and offers **Update** to pick up the latest fixes.
+
 ## 0.3.8 — 2026-10-13
 
 ### Holy grail
